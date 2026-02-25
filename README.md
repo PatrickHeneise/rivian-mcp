@@ -1,6 +1,6 @@
 # Rivian MCP
 
-Read-only [MCP server](https://modelcontextprotocol.io) for the unofficial Rivian GraphQL API. Check your vehicle's battery, range, OTA updates, charging status, and more — right from Claude.
+Read-only [MCP server](https://modelcontextprotocol.io) for Rivian's undocumented GraphQL API. Check your vehicle's battery, range, OTA updates, charging status, and more — right from Claude.
 
 **Strictly read-only** — no vehicle commands, no settings changes.
 
@@ -73,6 +73,6 @@ Your session is saved to `~/.rivian-mcp/session.json` and reused automatically u
 
 ## References
 
-- [Unofficial Rivian API Docs](https://rivian-api.kaedenb.org/app/)
+- [Rivian API Docs](https://rivian-api.kaedenb.org/app/) — community-maintained
 - [rivian-python-client](https://github.com/bretterer/rivian-python-client) — Python client this is based on
 - [home-assistant-rivian](https://github.com/bretterer/home-assistant-rivian) — Home Assistant integration

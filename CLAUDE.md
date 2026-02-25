@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is a pure MCP server — no CLI.
 
 - **`mcp-server.js`** — MCP server entry point. Registers tools, handles session persistence (`~/.rivian-mcp/session.json`), and formats responses for human readability.
-- **`lib/rivian.js`** — All Rivian API interaction. Plain ESM functions with module-level session state. Wraps the unofficial Rivian GraphQL API (based on `bretterer/rivian-python-client`).
+- **`lib/rivian.js`** — All Rivian API interaction. Plain ESM functions with module-level session state. Wraps Rivian's undocumented GraphQL API (schema referenced from `bretterer/rivian-python-client`).
 - **`.claude/skills/rivian-api.md`** — Detailed API reference: endpoints, GraphQL schema, function signatures, OTA status values. Consult this when adding queries or working with vehicle data.
 
 ## Auth Flow
