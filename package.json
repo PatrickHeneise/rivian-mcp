@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "start": "node mcp-server.js",
+    "test": "node --test",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
