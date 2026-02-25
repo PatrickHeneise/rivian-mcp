@@ -74,7 +74,6 @@ function formatUserInfo(user) {
     lines.push(v.name || car.model);
     lines.push(`  ${car.modelYear} ${car.make} ${car.model}`);
     lines.push(`  VIN: ${v.vin}`);
-    lines.push(`  Vehicle ID: ${v.id}`);
 
     if (car.otaEarlyAccessStatus) {
       lines.push(`  OTA early access: ${car.otaEarlyAccessStatus === 'OPTED_IN' ? 'Yes' : 'No'}`);
@@ -379,6 +378,20 @@ function formatDriversAndKeys(data) {
   return lines.join('\n').trim();
 }
 
+// ── Vehicle ID resolution ─────────────────────────────────────────────
+
+let cachedVehicleId = null;
+
+async function resolveVehicleId() {
+  if (cachedVehicleId) return cachedVehicleId;
+  const user = await rivian.getUserInfo();
+  if (!user.vehicles?.length) {
+    throw new Error('No vehicles found on your Rivian account.');
+  }
+  cachedVehicleId = user.vehicles[0].id;
+  return cachedVehicleId;
+}
+
 // ── Restore session on startup ────────────────────────────────────────
 
 loadSession();
@@ -469,17 +482,17 @@ server.tool(
   'rivian_get_vehicle_state',
   "Check your vehicle's current status — battery, range, doors, tires, location, climate, software, and more.",
   {
-    vehicle_id: z.string().describe('Vehicle ID from your account info'),
     properties: z
       .array(z.string())
       .optional()
       .describe('Specific properties to check. Leave empty for a full status report.'),
   },
-  async ({ vehicle_id, properties }) => {
+  async ({ properties }) => {
     try {
       requireAuth();
+      const vehicleId = await resolveVehicleId();
       const props = properties ? new Set(properties) : undefined;
-      return text(formatVehicleState(await rivian.getVehicleState(vehicle_id, props)));
+      return text(formatVehicleState(await rivian.getVehicleState(vehicleId, props)));
     } catch (err) {
       return text(err.message);
     }
@@ -489,13 +502,12 @@ server.tool(
 server.tool(
   'rivian_get_ota_status',
   "Check for software updates — what version you're running and whether a new one is available.",
-  {
-    vehicle_id: z.string().describe('Vehicle ID from your account info'),
-  },
-  async ({ vehicle_id }) => {
+  {},
+  async () => {
     try {
       requireAuth();
-      return text(formatOTAStatus(await rivian.getOTAUpdateDetails(vehicle_id)));
+      const vehicleId = await resolveVehicleId();
+      return text(formatOTAStatus(await rivian.getOTAUpdateDetails(vehicleId)));
     } catch (err) {
       return text(err.message);
     }
@@ -505,13 +517,12 @@ server.tool(
 server.tool(
   'rivian_get_charging_session',
   'Check on an active charging session — power, battery level, time remaining, and cost.',
-  {
-    vehicle_id: z.string().describe('Vehicle ID from your account info'),
-  },
-  async ({ vehicle_id }) => {
+  {},
+  async () => {
     try {
       requireAuth();
-      return text(formatChargingSession(await rivian.getLiveChargingSession(vehicle_id)));
+      const vehicleId = await resolveVehicleId();
+      return text(formatChargingSession(await rivian.getLiveChargingSession(vehicleId)));
     } catch (err) {
       return text(err.message);
     }
@@ -521,13 +532,12 @@ server.tool(
 server.tool(
   'rivian_get_drivers_and_keys',
   'See who has access to your vehicle — drivers, phone keys, and key fobs.',
-  {
-    vehicle_id: z.string().describe('Vehicle ID from your account info'),
-  },
-  async ({ vehicle_id }) => {
+  {},
+  async () => {
     try {
       requireAuth();
-      return text(formatDriversAndKeys(await rivian.getDriversAndKeys(vehicle_id)));
+      const vehicleId = await resolveVehicleId();
+      return text(formatDriversAndKeys(await rivian.getDriversAndKeys(vehicleId)));
     } catch (err) {
       return text(err.message);
     }
