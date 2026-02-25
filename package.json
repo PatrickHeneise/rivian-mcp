@@ -4,11 +4,13 @@
   "description": "Read-only MCP server for the Rivian API — vehicle state, OTA status, charging, and more",
   "type": "module",
   "bin": {
-    "rivian-mcp": "mcp-server.js"
+    "rivian-mcp": "mcp-server.js",
+    "rivian": "cli.js"
   },
   "main": "mcp-server.js",
   "files": [
     "mcp-server.js",
+    "cli.js",
     "lib/"
   ],
   "scripts": {
