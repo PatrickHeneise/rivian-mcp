@@ -58,17 +58,17 @@ Your session is saved to `~/.rivian-mcp/session.json` and reused automatically u
 
 ## Tools
 
-| Tool | What it does |
-|---|---|
-| `rivian_login` | Start sign-in (triggers verification code) |
-| `rivian_submit_otp` | Complete sign-in with the verification code |
-| `rivian_get_user_info` | Your account, vehicles, and software versions |
-| `rivian_get_vehicle_state` | Live status — battery, doors, tires, location, climate, OTA |
-| `rivian_get_ota_status` | Current and available software versions |
-| `rivian_get_charging_session` | Active charging session details |
-| `rivian_get_charging_history` | Past charging sessions — energy, cost, location |
-| `rivian_get_charging_schedule` | Your configured charging schedule |
-| `rivian_get_drivers_and_keys` | Drivers and their phone keys / key fobs |
+| Tool                           | What it does                                                |
+| ------------------------------ | ----------------------------------------------------------- |
+| `rivian_login`                 | Start sign-in (triggers verification code)                  |
+| `rivian_submit_otp`            | Complete sign-in with the verification code                 |
+| `rivian_get_user_info`         | Your account, vehicles, and software versions               |
+| `rivian_get_vehicle_state`     | Live status — battery, doors, tires, location, climate, OTA |
+| `rivian_get_ota_status`        | Current and available software versions                     |
+| `rivian_get_charging_session`  | Active charging session details                             |
+| `rivian_get_charging_history`  | Past charging sessions — energy, cost, location             |
+| `rivian_get_charging_schedule` | Your configured charging schedule                           |
+| `rivian_get_drivers_and_keys`  | Drivers and their phone keys / key fobs                     |
 
 ## Requirements
 
