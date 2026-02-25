@@ -6,6 +6,7 @@ description: Rivian API reference for building features against the unofficial R
 # Rivian API Skill
 
 ## CRITICAL SAFETY RULE
+
 **This project is READ ONLY. Never add mutations that write, update, or send commands to the API.** The only mutations allowed are `CreateCSRFToken`, `Login`, and `LoginWithOTP` (authentication). No `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, or any other write operation.
 
 ## Architecture
@@ -25,38 +26,45 @@ description: Rivian API reference for building features against the unofficial R
 
 ## API Endpoints
 
-| Endpoint | Purpose | Headers |
-|---|---|---|
-| `https://rivian.com/api/gql/gateway/graphql` | Main gateway — auth, vehicle info, state | `authHeaders()` |
-| `https://rivian.com/api/gql/chrg/user/graphql` | Charging data | `chargingHeaders()` |
-| `https://rivian.com/api/gql/orders/graphql` | Orders (not implemented, read-only queries only) | — |
-| `https://rivian.com/api/gql/t2d/graphql` | Payments (not implemented, read-only queries only) | — |
+| Endpoint                                       | Purpose                                            | Headers             |
+| ---------------------------------------------- | -------------------------------------------------- | ------------------- |
+| `https://rivian.com/api/gql/gateway/graphql`   | Main gateway — auth, vehicle info, state           | `authHeaders()`     |
+| `https://rivian.com/api/gql/chrg/user/graphql` | Charging data                                      | `chargingHeaders()` |
+| `https://rivian.com/api/gql/orders/graphql`    | Orders (not implemented, read-only queries only)   | —                   |
+| `https://rivian.com/api/gql/t2d/graphql`       | Payments (not implemented, read-only queries only) | —                   |
 
 ## Implemented Read-Only Functions
 
 ### `getUserInfo()`
+
 Returns current user with all vehicles. Key fields:
+
 - `vehicle.otaEarlyAccessStatus` (Boolean) — OTA software update eligibility
 - `vehicle.currentOTAUpdateDetails` / `availableOTAUpdateDetails` — version info + release notes URL
 - `vehicle.vehicleState.supportedFeatures` — list of available features
 
 ### `getVehicleState(vehicleId, properties?)`
+
 Returns live vehicle state. Pass a `Set` of property names. Uses vehicle ID (e.g., `01-246161849`), not VIN.
 Key OTA properties: `otaStatus`, `otaAvailableVersion`, `otaCurrentVersion`, `otaInstallReady`, `otaInstallProgress`, `otaDownloadProgress`, `otaCurrentStatus`, `otaInstallType`.
 Other useful: `batteryLevel`, `distanceToEmpty`, `vehicleMileage`, `powerState`, `chargerStatus`, `gnssLocation`, `doorXxxClosed/Locked`, `closureXxxClosed/Locked`.
 
 Property values come as `{ timeStamp, value }` except:
+
 - `cloudConnection` → `{ lastSync, isOnline }`
 - `gnssLocation` → `{ latitude, longitude, timeStamp, isAuthorized }`
 - `gnssError` → `{ timeStamp, positionVertical, positionHorizontal, speed, bearing }`
 
 ### `getOTAUpdateDetails(vehicleId)`
+
 Returns `currentOTAUpdateDetails` and `availableOTAUpdateDetails` with `{ url, version, locale }`. Uses vehicle ID (not VIN).
 
 ### `getLiveChargingSession(vehicleId)`
+
 Returns live charging data: power, SOC, time remaining, energy charged, charger state. Uses vehicle ID.
 
 ### `getDriversAndKeys(vehicleId)`
+
 Returns invited users (provisioned and unprovisioned) and their enrolled devices/keys.
 
 ## GraphQL Schema Reference (Gateway)
@@ -72,7 +80,7 @@ type Vehicle {
   modelYear: Int!
   otaEarlyAccessStatus: Boolean!
   currentOTAUpdateDetails: OTAUpdateDetails!
-  availableOTAUpdateDetails: OTAUpdateDetails  # null = no update available
+  availableOTAUpdateDetails: OTAUpdateDetails # null = no update available
   vehicleState: VehicleState!
 }
 
@@ -84,6 +92,7 @@ type OTAUpdateDetails {
 ```
 
 ### OTA Status Values
+
 - `Idle` — no update activity
 - `Available` — update available
 - `Ready_To_Install` / `Scheduled_To_Install` — ready for install
@@ -91,7 +100,9 @@ type OTAUpdateDetails {
 - `Success` / `Failed` — completed
 
 ### Vehicle State OTA Properties
+
 All `TimeStampedString` or `TimeStampedInt` with `{ timeStamp, value }`:
+
 - `otaCurrentVersion` / `otaAvailableVersion` — version strings (e.g., "2025.3.0")
 - `otaCurrentVersionGitHash` / `otaAvailableVersionGitHash`
 - `otaCurrentVersionYear` / `otaCurrentVersionWeek` / `otaCurrentVersionNumber`
@@ -103,11 +114,14 @@ All `TimeStampedString` or `TimeStampedInt` with `{ timeStamp, value }`:
 - `otaInstallDuration` / `otaInstallTime` / `otaInstallType`
 
 ### `getChargingHistory()`
+
 Returns all completed charging sessions. No parameters needed — returns all sessions for the authenticated user.
 Key fields: `startInstant`, `endInstant`, `totalEnergyKwh`, `rangeAddedKm`, `paidTotal`, `currencyCode`, `city`, `vendor`, `chargerType`, `isHomeCharger`, `isRoamingNetwork`, `isPublic`.
 
 ### `getChargingSchedule(vehicleId)`
+
 Returns configured charging schedules. Key fields:
+
 - `startTime` — minutes from midnight (e.g., 1320 = 10:00 PM)
 - `duration` — minutes (e.g., 360 = 6 hours)
 - `amperage`, `enabled`, `weekDays`, `location { latitude, longitude }`
@@ -117,6 +131,7 @@ Returns configured charging schedules. Key fields:
 These queries exist in the Rivian API and could be added as read-only functions:
 
 ### Gateway (`gateway/graphql`)
+
 - `getVehicleOrderStatus(vehicleId)` — order/delivery status
 - `getVehicleWarranty(vehicleId)` — warranty details
 - `getVehicleLastConnection(vehicleId)` — last cloud connection time
@@ -125,9 +140,11 @@ These queries exist in the Rivian API and could be added as read-only functions:
 - `getVehicleImages(vehicleId)` — vehicle renders/photos
 
 ### Charging (`chrg/user/graphql`)
+
 - `getChargingSiteDetails(siteId)` — charger details, pricing, availability
 
 ### Orders (`orders/graphql`)
+
 - `getOrderDetails(orderId)` — order configuration, status, delivery timeline
 
 **DO NOT IMPLEMENT**: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, `updateVehicleSettings`, `enrollPhone`, or any other mutation that modifies vehicle/account state.
