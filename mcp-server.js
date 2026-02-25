@@ -1,11 +1,29 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import * as rivian from './lib/rivian-api.js'
 import * as format from './lib/format.js'
 import { loadSession, saveSession } from './lib/session.js'
+
+// ── CLI passthrough ───────────────────────────────────────────────────
+
+const CLI_COMMANDS = new Set(['ota', 'stats', 'help', '--help', '-h'])
+if (CLI_COMMANDS.has(process.argv[2])) {
+  const __dirname = dirname(fileURLToPath(import.meta.url))
+  try {
+    execFileSync(process.execPath, [join(__dirname, 'cli.js'), ...process.argv.slice(2)], {
+      stdio: 'inherit',
+    })
+  } catch (err) {
+    process.exit(err.status ?? 1)
+  }
+  process.exit(0)
+}
 
 function text(str) {
   return { content: [{ type: 'text', text: str }] }
