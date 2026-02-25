@@ -343,6 +343,76 @@ function formatChargingSession(data) {
   return lines.join('\n');
 }
 
+function formatChargingHistory(sessions) {
+  if (!sessions?.length) return 'No charging history found.';
+
+  const lines = [`Charging History (${sessions.length} sessions)`, ''];
+
+  for (const s of sessions) {
+    const start = new Date(s.startInstant);
+    const end = new Date(s.endInstant);
+    const date = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const durationMs = end - start;
+    const durationMin = Math.round(durationMs / 60000);
+    const hours = Math.floor(durationMin / 60);
+    const mins = durationMin % 60;
+    const duration = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+    const location = [s.city, s.vendor].filter(Boolean).join(' — ');
+    const chargerLabel = s.isHomeCharger ? 'Home' : s.chargerType || 'Unknown';
+
+    lines.push(`${date}  ${startTime}–${endTime} (${duration})`);
+    if (location) lines.push(`  Location: ${location}`);
+    lines.push(`  Charger: ${chargerLabel}`);
+    if (s.totalEnergyKwh != null) lines.push(`  Energy: ${s.totalEnergyKwh.toFixed(1)} kWh`);
+    if (s.rangeAddedKm != null) {
+      const miles = (s.rangeAddedKm * 0.621371).toFixed(0);
+      lines.push(`  Range added: ${miles} miles`);
+    }
+    if (s.paidTotal != null && s.paidTotal > 0) {
+      const currency = s.currencyCode === 'USD' ? '$' : `${s.currencyCode} `;
+      lines.push(`  Cost: ${currency}${s.paidTotal.toFixed(2)}`);
+    } else if (s.paidTotal === 0) {
+      lines.push('  Cost: Free');
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
+function formatChargingSchedule(data) {
+  const schedules = data?.chargingSchedules;
+  if (!schedules?.length) return 'No charging schedules configured.';
+
+  const lines = ['Charging Schedules', ''];
+
+  for (const s of schedules) {
+    const startHour = Math.floor(s.startTime / 60);
+    const startMin = s.startTime % 60;
+    const endMinutes = s.startTime + s.duration;
+    const endHour = Math.floor(endMinutes / 60) % 24;
+    const endMin = endMinutes % 60;
+
+    const fmt = (h, m) => {
+      const period = h >= 12 ? 'PM' : 'AM';
+      const hour12 = h % 12 || 12;
+      return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+    };
+
+    lines.push(`${fmt(startHour, startMin)} – ${fmt(endHour, endMin)} (${s.duration / 60}h)`);
+    lines.push(`  Amperage: ${s.amperage}A`);
+    lines.push(`  Enabled: ${s.enabled ? 'Yes' : 'No'}`);
+    if (s.weekDays?.length) lines.push(`  Days: ${s.weekDays.join(', ')}`);
+    if (s.location) lines.push(`  Location: ${s.location.latitude}, ${s.location.longitude}`);
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
 function formatDriversAndKeys(data) {
   const lines = [];
 
@@ -523,6 +593,35 @@ server.tool(
       requireAuth();
       const vehicleId = await resolveVehicleId();
       return text(formatChargingSession(await rivian.getLiveChargingSession(vehicleId)));
+    } catch (err) {
+      return text(err.message);
+    }
+  },
+);
+
+server.tool(
+  'rivian_get_charging_history',
+  'View past charging sessions — energy, cost, duration, and location for every charge.',
+  {},
+  async () => {
+    try {
+      requireAuth();
+      return text(formatChargingHistory(await rivian.getChargingHistory()));
+    } catch (err) {
+      return text(err.message);
+    }
+  },
+);
+
+server.tool(
+  'rivian_get_charging_schedule',
+  'See your charging schedule — what times and days your vehicle is set to charge.',
+  {},
+  async () => {
+    try {
+      requireAuth();
+      const vehicleId = await resolveVehicleId();
+      return text(formatChargingSchedule(await rivian.getChargingSchedule(vehicleId)));
     } catch (err) {
       return text(err.message);
     }
