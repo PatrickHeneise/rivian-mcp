@@ -53,6 +53,8 @@ Your session is saved to `~/.rivian-mcp/session.json` and reused automatically u
 - "Show me the full vehicle status"
 - "Who has keys to my R1S?"
 - "Am I currently charging?"
+- "Show my charging history"
+- "What's my charging schedule?"
 
 ## Tools
 
@@ -64,12 +66,20 @@ Your session is saved to `~/.rivian-mcp/session.json` and reused automatically u
 | `rivian_get_vehicle_state` | Live status — battery, doors, tires, location, climate, OTA |
 | `rivian_get_ota_status` | Current and available software versions |
 | `rivian_get_charging_session` | Active charging session details |
+| `rivian_get_charging_history` | Past charging sessions — energy, cost, location |
+| `rivian_get_charging_schedule` | Your configured charging schedule |
 | `rivian_get_drivers_and_keys` | Drivers and their phone keys / key fobs |
 
 ## Requirements
 
 - Node.js 24+
 - A Rivian account with a vehicle
+
+## Support
+
+If you're thinking about getting a Rivian and don't have a referral yet, here's mine — you'll get benefits on your purchase and it helps support this project:
+
+[Get a Rivian R1 with referral benefits](https://rivian.com/configurations/list?reprCode=PATRICK4568756)
 
 ## References
 
