@@ -102,6 +102,16 @@ All `TimeStampedString` or `TimeStampedInt` with `{ timeStamp, value }`:
 - `otaDownloadProgress` — download progress (0-100)
 - `otaInstallDuration` / `otaInstallTime` / `otaInstallType`
 
+### `getChargingHistory()`
+Returns all completed charging sessions. No parameters needed — returns all sessions for the authenticated user.
+Key fields: `startInstant`, `endInstant`, `totalEnergyKwh`, `rangeAddedKm`, `paidTotal`, `currencyCode`, `city`, `vendor`, `chargerType`, `isHomeCharger`, `isRoamingNetwork`, `isPublic`.
+
+### `getChargingSchedule(vehicleId)`
+Returns configured charging schedules. Key fields:
+- `startTime` — minutes from midnight (e.g., 1320 = 10:00 PM)
+- `duration` — minutes (e.g., 360 = 6 hours)
+- `amperage`, `enabled`, `weekDays`, `location { latitude, longitude }`
+
 ## Known Read-Only Queries (Not Yet Implemented)
 
 These queries exist in the Rivian API and could be added as read-only functions:
@@ -112,11 +122,9 @@ These queries exist in the Rivian API and could be added as read-only functions:
 - `getVehicleLastConnection(vehicleId)` — last cloud connection time
 - `planTrip(...)` — route planning with charging stops
 - `getNearbyChargingSites(...)` — nearby chargers with availability
-- `getChargingSchedule(vehicleId)` — current charging schedule
 - `getVehicleImages(vehicleId)` — vehicle renders/photos
 
 ### Charging (`chrg/user/graphql`)
-- `getChargingHistory(vehicleId)` — past charging sessions
 - `getChargingSiteDetails(siteId)` — charger details, pricing, availability
 
 ### Orders (`orders/graphql`)
