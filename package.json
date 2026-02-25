@@ -1,0 +1,50 @@
+{
+  "name": "rivian-mcp",
+  "version": "1.0.0",
+  "description": "Read-only MCP server for the Rivian API — vehicle state, OTA status, charging, and more",
+  "type": "module",
+  "bin": {
+    "rivian-mcp": "mcp-server.js"
+  },
+  "main": "mcp-server.js",
+  "files": [
+    "mcp-server.js",
+    "lib/"
+  ],
+  "scripts": {
+    "start": "node mcp-server.js"
+  },
+  "keywords": [
+    "rivian",
+    "mcp",
+    "ev",
+    "vehicle",
+    "api"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PatrickHeneise/rivian-mcp.git"
+  },
+  "homepage": "https://github.com/PatrickHeneise/rivian-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/PatrickHeneise/rivian-mcp/issues"
+  },
+  "author": "Patrick Heneise",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest",
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "semantic-release": "^25.0.3"
+  }
+}
