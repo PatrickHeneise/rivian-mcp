@@ -355,7 +355,9 @@ function formatChargingSession(data) {
 }
 
 function formatChargingHistory(sessions) {
-  if (!sessions?.length) return 'No charging history found.'
+  if (sessions === null || sessions === undefined)
+    return 'No charging history returned. Your session may have expired — try logging in again.'
+  if (!sessions.length) return 'No charging history found.'
 
   const lines = [`Charging History (${sessions.length} sessions)`, '']
 
