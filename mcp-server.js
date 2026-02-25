@@ -312,11 +312,18 @@ function formatOTAStatus(ota) {
     lines.push('Current software: unknown')
   }
 
+  const otaStatus = ota.vehicleState?.otaStatus?.value
+  if (otaStatus) {
+    lines.push(`OTA status: ${otaStatus}`)
+  }
+
   if (ota.availableOTAUpdateDetails) {
     lines.push(`Update available: v${ota.availableOTAUpdateDetails.version}`)
     if (ota.availableOTAUpdateDetails.url) {
       lines.push(`Release notes: ${ota.availableOTAUpdateDetails.url}`)
     }
+  } else if (otaStatus && otaStatus.toLowerCase() !== 'idle') {
+    lines.push('Flagged for update — details pending.')
   } else {
     lines.push('No update available — software is up to date.')
   }
