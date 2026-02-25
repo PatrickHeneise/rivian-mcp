@@ -19,6 +19,15 @@ async function ensureAuth() {
   const result = loadSession(rivian)
   if (result === true) return
 
+  // OTP was already initiated (e.g. via MCP login) — just complete it
+  if (result === 'needs_otp') {
+    const email = process.env.RIVIAN_EMAIL || (await prompt('Rivian email: '))
+    const code = await prompt('Verification code: ')
+    await rivian.validateOtp(email, code)
+    saveSession(rivian)
+    return
+  }
+
   let email = process.env.RIVIAN_EMAIL
   let password = process.env.RIVIAN_PASSWORD
 
