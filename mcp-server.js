@@ -151,7 +151,7 @@ server.tool(
     try {
       requireAuth()
       const vehicleId = await resolveVehicleId()
-      const props = properties ? new Set(properties) : undefined
+      const props = properties?.length ? new Set(properties) : undefined
       return text(format.formatVehicleState(await rivian.getVehicleState(vehicleId, props)))
     } catch (err) {
       return text(err.message)
