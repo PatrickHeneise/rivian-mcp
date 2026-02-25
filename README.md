@@ -1,6 +1,6 @@
 # Rivian MCP
 
-Read-only [MCP server](https://modelcontextprotocol.io) for Rivian's undocumented GraphQL API. Check your vehicle's battery, range, OTA updates, charging status, and more — right from Claude.
+Read-only [MCP server](https://modelcontextprotocol.io) and CLI for Rivian's undocumented GraphQL API. Check your vehicle's battery, range, OTA updates, charging status, and more — right from Claude or your terminal.
 
 **Strictly read-only** — no vehicle commands, no settings changes.
 
@@ -69,6 +69,25 @@ Your session is saved to `~/.rivian-mcp/session.json` and reused automatically u
 | `rivian_get_charging_history`  | Past charging sessions — energy, cost, location             |
 | `rivian_get_charging_schedule` | Your configured charging schedule                           |
 | `rivian_get_drivers_and_keys`  | Drivers and their phone keys / key fobs                     |
+
+## CLI
+
+The package also installs a `rivian` CLI for quick terminal access without Claude.
+
+```bash
+npx rivian-mcp ota    # OTA software update status
+npx rivian-mcp stats  # Full vehicle state
+```
+
+Or install globally:
+
+```bash
+npm install -g rivian-mcp
+rivian ota
+rivian stats
+```
+
+Authentication works the same way — credentials from `RIVIAN_EMAIL`/`RIVIAN_PASSWORD` env vars or interactive prompts. Session is shared with the MCP server (`~/.rivian-mcp/session.json`).
 
 ## Requirements
 
