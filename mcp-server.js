@@ -33,7 +33,11 @@ async function resolveVehicleId() {
 
 // ── Restore session on startup ────────────────────────────────────────
 
-loadSession(rivian)
+try {
+  loadSession(rivian)
+} catch (err) {
+  console.error(`[rivian-mcp] Failed to restore session, starting unauthenticated: ${err.message}`)
+}
 
 // ── MCP Server ────────────────────────────────────────────────────────
 
