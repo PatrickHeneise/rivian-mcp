@@ -12,8 +12,7 @@ import { loadSession, saveSession } from './lib/session.js'
 
 // ── CLI passthrough ───────────────────────────────────────────────────
 
-const CLI_COMMANDS = new Set(['ota', 'stats', 'help', '--help', '-h'])
-if (CLI_COMMANDS.has(process.argv[2])) {
+if (process.stdin.isTTY) {
   const __dirname = dirname(fileURLToPath(import.meta.url))
   try {
     execFileSync(process.execPath, [join(__dirname, 'cli.js'), ...process.argv.slice(2)], {
