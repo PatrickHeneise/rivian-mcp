@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`lib/rivian-api.js`** — All Rivian API interaction. Plain ESM functions with module-level session state. Wraps Rivian's undocumented GraphQL API (schema referenced from `bretterer/rivian-python-client`).
 - **`lib/session.js`** — Session persistence to `~/.rivian-mcp/session.json`. Handles load, save, and expiry.
 - **`lib/format.js`** — Formatting helpers for human-readable MCP/CLI output.
-- **`.claude/skills/rivian-api.md`** — Detailed API reference: endpoints, GraphQL schema, function signatures, OTA status values. Consult this when adding queries or working with vehicle data.
+- **`.claude/skills/SKILL.md`** — Detailed API reference: endpoints, GraphQL schema, function signatures, all confirmed vehicle state properties, OTA status values. Consult this when adding queries or working with vehicle data.
 
 ## Auth Flow
 
@@ -39,8 +39,8 @@ Key headers: `Csrf-Token`, `A-Sess` (appSessionToken), `U-Sess` (userSessionToke
 
 ## Adding New API Queries
 
-1. Reference the GraphQL schema in `bretterer/rivian-python-client` repo (`src/rivian/schemas/gateway.graphql`)
+1. Consult `.claude/skills/SKILL.md` for confirmed-working fields and what has already been tested
 2. Add an exported function to `lib/rivian-api.js`
 3. Gateway queries use `authHeaders()`, charging queries use `chargingHeaders()`
-4. `getVehicleState()` takes vehicle ID (e.g., `01-246161849`), not VIN
-5. Add a corresponding MCP tool in `mcp-server.js` with a user-friendly description and formatted response
+4. Use `vehicleState(id: $vehicleID)` for vehicle state — variable is `vehicleID`, not `vehicleId`
+5. Add formatting to `lib/format.js` and an MCP tool in `mcp-server.js`
