@@ -1,7 +1,8 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "zentered",
-  "description": "Claude Code plugins by Zentered — a software and AI consultancy.",
+  "name": "rivian-ai",
+  "metadata": {
+    "description": "Rivian AI tools and skills for Claude Code"
+  },
   "owner": {
     "name": "Zentered",
     "email": "hi@zentered.co"
@@ -10,9 +11,12 @@
     {
       "name": "rivian-mcp",
       "description": "Skills for working with the Rivian MCP server — vehicle state, charging, OTA updates, and the unofficial Rivian GraphQL API.",
-      "category": "development",
+      "version": "1.0.0",
       "source": "./",
-      "homepage": "https://github.com/PatrickHeneise/rivian-mcp"
+      "author": {
+        "name": "Patrick Heneise",
+        "email": "hi@zentered.co"
+      }
     }
   ]
 }

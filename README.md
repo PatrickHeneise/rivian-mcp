@@ -12,7 +12,8 @@ Install the skill so Claude automatically knows how to work with this codebase a
 
 ```bash
 claude /plugin marketplace add PatrickHeneise/rivian-mcp
-claude /plugin install rivian-mcp@patrickheneise-rivian-mcp
+claude /plugin install rivian-mcp@rivian-ai
+claude /plugin install rivian-mcp@rivian-ai
 ```
 
 **Inside Claude Code**, type:
@@ -24,7 +25,8 @@ claude /plugin install rivian-mcp@patrickheneise-rivian-mcp
 Then:
 
 ```
-/plugin install rivian-mcp@patrickheneise-rivian-mcp
+/plugin install rivian-mcp@rivian-ai
+/plugin install rivian-mcp@rivian-ai
 ```
 
 ## Setup
