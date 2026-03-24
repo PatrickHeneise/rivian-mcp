@@ -1,0 +1,18 @@
+{
+  "name": "rivian-mcp",
+  "description": "Skills for working with the Rivian MCP server — vehicle state, charging, OTA updates, and the unofficial Rivian GraphQL API.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Zentered",
+    "email": "hi@zentered.co",
+    "url": "https://zentered.co"
+  },
+  "contributors": [
+    {
+      "name": "Patrick Heneise",
+      "url": "https://github.com/PatrickHeneise"
+    }
+  ],
+  "tags": ["rivian", "ev", "vehicle", "mcp", "graphql", "ota"],
+  "repository": "https://github.com/PatrickHeneise/rivian-mcp"
+}

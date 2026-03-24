@@ -140,7 +140,7 @@ server.tool(
 
 server.tool(
   'rivian_get_vehicle_state',
-  "Check your vehicle's current status — battery, range, doors, tires, location, climate, software, and more.",
+  "Check your vehicle's current status — battery, range, doors, windows, tires, location, climate, seat heat/vent, steering wheel heat, software versions, security, trailer status, and more.",
   {
     properties: z
       .array(z.string())
