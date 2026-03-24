@@ -11,7 +11,7 @@
       "name": "rivian-mcp",
       "description": "Skills for working with the Rivian MCP server — vehicle state, charging, OTA updates, and the unofficial Rivian GraphQL API.",
       "category": "development",
-      "source": ".",
+      "source": "./",
       "homepage": "https://github.com/PatrickHeneise/rivian-mcp"
     }
   ]
