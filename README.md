@@ -4,6 +4,16 @@ Read-only [MCP server](https://modelcontextprotocol.io) and CLI for Rivian's und
 
 **Strictly read-only** — no vehicle commands, no settings changes.
 
+## Install as Claude Code Plugin
+
+Install the skill so Claude automatically knows how to work with this codebase and the Rivian API:
+
+```bash
+claude /install-plugin https://github.com/PatrickHeneise/rivian-mcp
+```
+
+The skill loads context about the Rivian GraphQL API, confirmed vehicle state properties, auth flow, and formatter patterns whenever you're working on this project.
+
 ## Setup
 
 ```bash
