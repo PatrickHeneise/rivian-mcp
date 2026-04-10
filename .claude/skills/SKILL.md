@@ -14,20 +14,20 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 
 ## Architecture
 
-| File | Purpose |
-|---|---|
-| `lib/rivian-api.js` | All API interaction — session state, queries, auth |
-| `lib/format.js` | Human-readable output for MCP/CLI |
-| `lib/session.js` | Session persistence to `~/.rivian-mcp/session.json` |
-| `mcp-server.js` | MCP server — tool registration and session restore |
-| `cli.js` | CLI — `ota` and `stats` commands |
+| File                | Purpose                                             |
+| ------------------- | --------------------------------------------------- |
+| `lib/rivian-api.js` | All API interaction — session state, queries, auth  |
+| `lib/format.js`     | Human-readable output for MCP/CLI                   |
+| `lib/session.js`    | Session persistence to `~/.rivian-mcp/session.json` |
+| `mcp-server.js`     | MCP server — tool registration and session restore  |
+| `cli.js`            | CLI — `ota` and `stats` commands                    |
 
 ## API Endpoints
 
-| Endpoint | Purpose | Auth |
-|---|---|---|
-| `https://rivian.com/api/gql/gateway/graphql` | Auth, vehicle info, state, schedules, drivers | `authHeaders()` → `{ A-Sess, U-Sess }` |
-| `https://rivian.com/api/gql/chrg/user/graphql` | Charging history, live session | `chargingHeaders()` → `{ U-Sess, Authorization: Bearer }` |
+| Endpoint                                       | Purpose                                       | Auth                                                      |
+| ---------------------------------------------- | --------------------------------------------- | --------------------------------------------------------- |
+| `https://rivian.com/api/gql/gateway/graphql`   | Auth, vehicle info, state, schedules, drivers | `authHeaders()` → `{ A-Sess, U-Sess }`                    |
+| `https://rivian.com/api/gql/chrg/user/graphql` | Charging history, live session                | `chargingHeaders()` → `{ U-Sess, Authorization: Bearer }` |
 
 > Introspection is blocked on both endpoints. `/orders/graphql` and `/t2d/graphql` exist but are untested.
 
@@ -44,16 +44,24 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 ## Implemented Functions
 
 ### `getUserInfo()`
+
 Returns `currentUser` with vehicles. Extracts `vehicles[0].id` — the vehicle ID used in all subsequent queries (e.g. `01-246161849`). Not the VIN.
 
 ### `getVehicleState(vehicleId, properties?)`
+
 **Critical:** Uses `vehicleState(id: $vehicleID)` — variable is `vehicleID` (capital D), not `vehicleId`.
 
 ```graphql
 query GetVehicleState($vehicleID: String!) {
   vehicleState(id: $vehicleID) {
-    batteryLevel { timeStamp value }
-    cloudConnection { lastSync isOnline }
+    batteryLevel {
+      timeStamp
+      value
+    }
+    cloudConnection {
+      lastSync
+      isOnline
+    }
     # ...
   }
 }
@@ -62,18 +70,23 @@ query GetVehicleState($vehicleID: String!) {
 Pass a `Set<string>` to fetch specific properties; omit for the full default set (~80 properties). Most return `{ timeStamp, value }`. Three use custom templates defined in `TEMPLATE_MAP`: `cloudConnection`, `gnssLocation`, `gnssError`.
 
 ### `getOTAUpdateDetails(vehicleId)`
+
 Returns `currentOTAUpdateDetails`, `availableOTAUpdateDetails`, and `vehicleState.otaStatus` via `getVehicle(id:)`.
 
 ### `getLiveChargingSession(vehicleId)`
+
 Returns live charge data or `null` when not charging. Uses charging endpoint.
 
 ### `getChargingHistory()`
+
 Returns all completed sessions for the authenticated user. No parameters.
 
 ### `getChargingSchedule(vehicleId)`
+
 Returns `chargingSchedules` array from `getVehicle`.
 
 ### `getDriversAndKeys(vehicleId)`
+
 Returns `invitedUsers` (provisioned + unprovisioned) with enrolled devices.
 
 ## Adding a New Vehicle State Property
@@ -89,8 +102,9 @@ Returns `invitedUsers` (provisioned + unprovisioned) with enrolled devices.
 2. Add a `format*` function to `lib/format.js`.
 3. Register with `server.tool(name, description, schema, handler)` in `mcp-server.js`.
 4. Handler pattern:
+
 ```js
-async ({ param }) => {
+;async ({ param }) => {
   try {
     requireAuth()
     const vehicleId = await resolveVehicleId()
@@ -116,7 +130,7 @@ For conditional sections, check whether at least one relevant key is present bef
 
 ```js
 const myKeys = ['field1', 'field2', 'field3']
-if (myKeys.some(k => k in state)) {
+if (myKeys.some((k) => k in state)) {
   lines.push('Section Header')
   print('Label', 'field1')
   print('Label', 'field2')
@@ -126,12 +140,12 @@ if (myKeys.some(k => k in state)) {
 
 ## Common Errors
 
-| Error | Cause | Fix |
-|---|---|---|
-| `GRAPHQL_VALIDATION_FAILED` | Unknown field name or wrong variable name | Check `references/vehicle-state-properties.md`; ensure variable is `vehicleID` not `vehicleId` |
-| `Not logged in` | No session / expired session | Call `rivian_login` → `rivian_submit_otp` |
-| `HTTP 400 Body cannot be empty` | JSON serialization issue in shell | Use Node.js or proper JSON escaping |
-| Field leaks into "Other" | Missing `printed.add(key)` in formatter | Add the key to `printed` in the appropriate section |
+| Error                           | Cause                                     | Fix                                                                                            |
+| ------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GRAPHQL_VALIDATION_FAILED`     | Unknown field name or wrong variable name | Check `references/vehicle-state-properties.md`; ensure variable is `vehicleID` not `vehicleId` |
+| `Not logged in`                 | No session / expired session              | Call `rivian_login` → `rivian_submit_otp`                                                      |
+| `HTTP 400 Body cannot be empty` | JSON serialization issue in shell         | Use Node.js or proper JSON escaping                                                            |
+| Field leaks into "Other"        | Missing `printed.add(key)` in formatter   | Add the key to `printed` in the appropriate section                                            |
 
 ## Additional Resources
 
