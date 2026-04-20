@@ -54,6 +54,15 @@ async function ensureAuth() {
   const result = loadSession(rivian)
   if (result === true) return
 
+  if (result === 'expired') {
+    const refreshed = await rivian.refreshSession()
+    if (refreshed) {
+      saveSession(rivian)
+      return
+    }
+    // refresh failed — fall through to full re-auth
+  }
+
   // OTP was already initiated (e.g. via MCP login) — just complete it
   if (result === 'needs_otp') {
     const email = process.env.RIVIAN_EMAIL || (await prompt(`${c.dim('Rivian email:')} `))
@@ -85,6 +94,8 @@ async function resolveVehicleId() {
   if (!user.vehicles?.length) throw new Error('No vehicles found on your Rivian account.')
   return user.vehicles[0].id
 }
+
+process.on('SIGINT', () => process.exit(130))
 
 const command = process.argv[2]
 
