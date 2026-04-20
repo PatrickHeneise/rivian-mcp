@@ -51,7 +51,12 @@ async function resolveVehicleId() {
 // ── Restore session on startup ────────────────────────────────────────
 
 try {
-  loadSession(rivian)
+  const sessionResult = loadSession(rivian)
+  if (sessionResult === 'expired') {
+    rivian.refreshSession().then((ok) => {
+      if (ok) saveSession(rivian)
+    }).catch(() => {})
+  }
 } catch (err) {
   console.error(`[rivian-mcp] Failed to restore session, starting unauthenticated: ${err.message}`)
 }
