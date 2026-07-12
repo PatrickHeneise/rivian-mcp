@@ -34,9 +34,10 @@ describe('formatVehicleState', () => {
     assert.doesNotMatch(out, /72\.3/)
   })
 
-  test('formats odometer with commas', () => {
+  test('converts odometer from meters to km', () => {
     const out = strip(formatVehicleState(vehicleState))
-    assert.match(out, /24,510,400/)
+    // fixture vehicleMileage is 24510400 meters → 24,510 km
+    assert.match(out, /Odometer\s+24,510 km/)
   })
 
   test('shows battery capacity', () => {
