@@ -41,7 +41,7 @@ Key headers: `Csrf-Token`, `A-Sess` (appSessionToken), `U-Sess` (userSessionToke
 ## API Units & Values
 
 - The API returns raw values with **no unit metadata**. `currentUser.settings.distanceUnit/temperatureUnit/pressureUnit` exist but may be `null`.
-- `vehicleMileage` is always in km regardless of user setting. `distanceToEmpty` follows the user's in-vehicle distance setting.
+- `vehicleMileage` is in **meters** regardless of user setting (live: `47393698` = 47,394 km) — divide by 1000 for km. `distanceToEmpty` follows the user's in-vehicle distance setting.
 - Battery level has float noise (e.g. `48.600002`) — round for display. OTA `0.0.0` version / empty hash / zero progress = no update, hide in output.
 - `cabinPreconditioningStatus` returns the string `"undefined"` when off — filter it.
 

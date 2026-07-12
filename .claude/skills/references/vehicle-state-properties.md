@@ -1,9 +1,11 @@
 # Vehicle State Properties Reference
 
-All properties confirmed working via live API testing (April 2026).
+All properties confirmed working via live API testing (re-verified July 2026).
 All return `{ timeStamp, value }` unless noted in the Custom Templates section.
 
-Units are determined by the user's in-vehicle settings (km/miles, °C/°F). The API returns raw values without unit metadata. User unit preferences (`distanceUnit`, `temperatureUnit`, `pressureUnit`) are available on `currentUser.settings` but may be `null`. The `vehicleMileage` field always returns km regardless of user setting.
+Units are determined by the user's in-vehicle settings (km/miles, °C/°F). The API returns raw values without unit metadata. User unit preferences (`distanceUnit`, `temperatureUnit`, `pressureUnit`) are available on `currentUser.settings` (each `{ value }`) but are commonly `null`.
+
+**`vehicleMileage` is in METERS, not km.** Live example: `47393698` = 47,394 km ≈ 29,449 mi. Divide by 1000 for km. (An earlier revision of this doc wrongly labeled it km — corrected July 2026.) `distanceToEmpty` follows the user's in-vehicle distance setting.
 
 ## Custom Templates
 
@@ -23,6 +25,7 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `gnssLocation`    | custom     | `{ latitude: 40.066, longitude: -105.287, timeStamp: "..." }` |
 | `gnssAltitude`    | Float      | `1695.9`                                                      |
 | `gnssSpeed`       | Int        | `0` (GPS speed)                                               |
+| `gnssBearing`     | Float      | `-10.393` (GPS heading, degrees; can be negative)             |
 
 ## Battery & Range
 
@@ -31,8 +34,10 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `batteryLevel`            | Float      | `48.600002` (%, may have float noise)           |
 | `batteryLimit`            | Int        | `85` (%)                                        |
 | `batteryCapacity`         | Float      | `143.554993`                                    |
+| `batteryCellType`         | String     | `"53g"` (chemistry/cell pack identifier)        |
+| `batteryNeedsLfpCalibration` | Int     | `0` (`1` when an LFP 100% calibration charge is due) |
 | `distanceToEmpty`         | Int        | `300` (user's distance unit)                    |
-| `vehicleMileage`          | Int        | `37413` (always km)                             |
+| `vehicleMileage`          | Int        | `47393698` (**meters** — divide by 1000 for km) |
 | `powerState`              | String     | `"sleep"`, `"ready"`, `"go"`                    |
 | `timeToEndOfCharge`       | Int        | `45` (minutes, `0` when not charging)           |
 | `remoteChargingAvailable` | Int        | `0` or `1`                                      |
@@ -46,6 +51,7 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `chargerState`        | String     | `"charging_ready"`, `"charging_active"`, `"charging_stopped"`                                  |
 | `chargePortState`     | String     | `"close"`, `"open"`, `"Locked"`                                                                |
 | `chargerDerateStatus` | String     | `"NONE"` (derate info during charging)                                                         |
+| `chargingTimeEstimationValidity` | String | `"SNA"` when idle; valid while charging                                                   |
 
 ## OTA Software
 
@@ -87,6 +93,12 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `tirePressureStatusFrontRight` | String     |                               |
 | `tirePressureStatusRearLeft`   | String     |                               |
 | `tirePressureStatusRearRight`  | String     |                               |
+| `tirePressureStatusValidFrontLeft`  | String | validity flag; `null` when no reading |
+| `tirePressureStatusValidFrontRight` | String |                               |
+| `tirePressureStatusValidRearLeft`   | String |                               |
+| `tirePressureStatusValidRearRight`  | String |                               |
+
+> Note the name: `tirePressureStatusValid*` (with `Status`), **not** `tirePressureValid*` — the latter is rejected.
 
 ## Doors
 
@@ -166,8 +178,9 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | Property               | Value type | Example                                   |
 | ---------------------- | ---------- | ----------------------------------------- |
 | `gearGuardLocked`      | String     | `"locked"` / `"unlocked"`                 |
-| `gearGuardVideoStatus` | String     | `"Enabled"`, `"Disabled"`                 |
-| `gearGuardVideoMode`   | String     | `"Away_From_Home"`, `"Parked"`            |
+| `gearGuardVideoStatus` | String     | `"Enabled"`, `"Disabled"`, `"Engaged"`    |
+| `gearGuardVideoMode`   | String     | `"Away_From_Home"`, `"Parked"`, `"Everywhere"` |
+| `gearGuardVideoTermsAccepted` | String | `"true"` / `"false"`                    |
 | `alarmSoundStatus`     | String     | `"false"` (not active), `"true"` (active) |
 
 ## Vehicle Health
@@ -261,24 +274,52 @@ Timestamped fields use `{ __typename, value, updatedAt }`. Returns `null` when n
 
 ---
 
-## Additional Queries (from external docs, not yet implemented)
+## Additional Queries (not yet implemented)
+
+### Confirmed working (verified July 2026 — ready to implement)
+
+**`getLiveSessionHistory(vehicleId: ID!)`** (charging endpoint) — charging power history over time.
+
+```graphql
+query getLiveSessionHistory($vehicleId: ID!) {
+  getLiveSessionHistory(vehicleId: $vehicleId) {
+    __typename
+    chartData { time kw }
+  }
+}
+```
+
+Returns `{ chartData: [] }` when not actively charging; populated with `{ time, kw }` samples during a session.
+
+**`getRegisteredWallboxes`** (charging endpoint) — home Rivian Wall Charger(s). No parameters. Returns `[]` when none are linked. Returns `WallboxRecord[]`:
+
+```graphql
+query getRegisteredWallboxes {
+  getRegisteredWallboxes {
+    wallboxId userId serialNumber softwareVersion model linked
+    latitude longitude name maxAmps maxVoltage maxPower
+    chargingStatus currentVoltage currentAmps power
+  }
+}
+```
+
+(This is the real query name; `getWallboxStatus` from older external docs does not exist. `thermalState` / `deviceState` are rejected on `WallboxRecord`.)
+
+**`cloudConnection` last-sync** — `vehicleState(id:).cloudConnection { lastSync isOnline }` already covers the "GetVehicleLastConnection" use case; no separate query needed.
+
+### Untested (from external docs)
 
 **Gateway endpoint (`/gateway/graphql`):**
 
 - `GetEstimatedRange(soc, driveMode, trailerProfile)` — estimate range
-- `SupportedFeatures` — feature flags (confirmed working)
-- `GetVehicleLastConnection` — last cloud sync timestamp
-- `getVehicleImages` — vehicle configuration images
 - WebSocket subscriptions at `wss://api.rivian.com/gql-consumer-subscriptions/graphql`
 - `planTrip` / `planTripWithMultiStop` — trip planning with charging stops
 - `places` — place search (Google Places integration)
 
 **Charging endpoint (`/chrg/user/graphql`):**
 
-- `getWallboxStatus` — Rivian Charger status (power, voltage, amps)
 - `ChargerDetails(id)` — DC charging station details
 - `CheckByRivianId` — linked third-party charging accounts
-- `getLiveSessionHistory` — charging power history over time
 
 **Orders endpoint (`/orders/graphql`):**
 
@@ -298,3 +339,5 @@ These were probed and returned `GRAPHQL_VALIDATION_FAILED` — do not use them:
 **Gateway queries:** `planTrip` (via our query format — may need different operation name), `getNearbyChargingSites`, `getVehicleImages` (rejected in our tests), `getVehicleWarranty`, `getUserNotifications`, `getVehicleOrderStatus`
 
 **Charging queries:** `getChargingSiteDetails`, `getActiveChargingSession`, `getPricingInfo`, `getChargerSummary`, `getNearbyChargingStations`, `getRoamingChargingNetworks`
+
+**Probed July 2026, rejected (vehicle state):** `seatRearLeftVent`, `seatRearRightVent`, `seatThirdRowLeftVent`, `seatThirdRowRightVent` (only `seatFrontLeftVent`/`seatFrontRightVent` exist), `gnssHorizontalAccuracy`, `gnssVerticalAccuracy`, `batteryLevelRaw`, `usableBatteryLevel`, `stateOfChargeLimit`, `chargerCablePresent`, `chargePortNextAction`, `driveModeEndTime`, `windowFrontLeftNextAction`, `windowCalibrationStatus`, `gearGuardAlarmStatus`, `tirePressureFrontLeftValid`, `brakePadWearFrontLeft`, `currentAddress`, `nextChargeTarget`, `lifetimeEnergyUsed`, `chargeEndReason`, `chargerType`, `acChargingPower`, `dcChargingPower`, `batteryHeatingStatus`, `preconditioningStatus`, `thermalWarning`, `centerDisplayStatus`, `driverPresence`, `liftgateNextAction` (use `closureLiftgateNextAction`), `estimatedTimeToEndOfCharge` (use `timeToEndOfCharge`)

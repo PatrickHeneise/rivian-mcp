@@ -69,6 +69,8 @@ query GetVehicleState($vehicleID: String!) {
 
 Pass a `Set<string>` to fetch specific properties; omit for the full default set (~80 properties). Most return `{ timeStamp, value }`. Three use custom templates defined in `TEMPLATE_MAP`: `cloudConnection`, `gnssLocation`, `gnssError`.
 
+**Units gotcha:** `vehicleMileage` is in **meters** (live `47393698` = 47,394 km) — divide by 1000 for km. `batteryLevel` has float noise (round for display). See `references/vehicle-state-properties.md` for per-field units.
+
 ### `getOTAUpdateDetails(vehicleId)`
 
 Returns `currentOTAUpdateDetails`, `availableOTAUpdateDetails`, and `vehicleState.otaStatus` via `getVehicle(id:)`.
@@ -150,3 +152,4 @@ if (myKeys.some((k) => k in state)) {
 ## Additional Resources
 
 - **`references/vehicle-state-properties.md`** — Complete tables of all confirmed-working vehicle state properties with types and example values, charging session/history/schedule fields, and a list of field names that were probed and do NOT exist. Consult before adding any new field.
+  - Two read-only queries are verified working but not yet implemented: `getLiveSessionHistory(vehicleId: ID!)` (charging power chart) and `getRegisteredWallboxes` (home Wall Charger status). Full schemas are in the reference under "Additional Queries → Confirmed working."
