@@ -30,6 +30,8 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 | `https://rivian.com/api/gql/chrg/user/graphql` | Charging history, live session                | `chargingHeaders()` → `{ U-Sess, Authorization: Bearer }` |
 
 > Introspection is blocked on both endpoints. `/orders/graphql` and `/t2d/graphql` exist but are untested.
+>
+> **Discovery tip:** the charging endpoint returns Apollo `Did you mean "..."?` suggestions and full validation messages (unknown field, missing required argument with its type). Probe it with near-complete names to enumerate fields and arguments. The gateway masks every validation error as `Error in GraphQL validation`, so probe it one field per request.
 
 ## Authentication Flow
 
@@ -37,7 +39,7 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 2. `login(email, password)` → `{ mfa: true|false }`
    - `mfa: true` → OTP sent → `validateOtp(email, code)`
 3. All queries require `A-Sess` + `U-Sess` headers
-4. Session persists to `~/.rivian-mcp/session.json`, valid 7 days
+4. Session persists to `~/.rivian-mcp/session.json`, valid 90 days (`SESSION_MAX_AGE_MS` in `lib/session.js`)
 5. `exportSession()` / `restoreSession(saved)` — serialize/restore state
 6. `isAuthenticated()` / `needsOtp()` — check status
 
@@ -45,7 +47,7 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 
 ### `getUserInfo()`
 
-Returns `currentUser` with vehicles. Extracts `vehicles[0].id` — the vehicle ID used in all subsequent queries (e.g. `01-246161849`). Not the VIN.
+Returns `currentUser` with vehicles, including `vehicle.mobileConfiguration` (trim, drive system, exterior, interior, wheels) and `vehicle.actualGeneralAssemblyDate`. Extracts `vehicles[0].id` — the vehicle ID used in all subsequent queries (e.g. `01-246161849`). Not the VIN.
 
 ### `getVehicleState(vehicleId, properties?)`
 
@@ -77,11 +79,11 @@ Returns `currentOTAUpdateDetails`, `availableOTAUpdateDetails`, and `vehicleStat
 
 ### `getLiveChargingSession(vehicleId)`
 
-Returns live charge data or `null` when not charging. Uses charging endpoint.
+Queries `getLiveSessionHistory(vehicleId: ID!)` on the charging endpoint. `getLiveSessionData` was removed (rejected Oct 2026) and its fields moved to `getLiveSessionHistory`. The query returns an all-null object when not charging; the function returns `null` in that case.
 
-### `getChargingHistory()`
+### `getChargingHistory(vehicleId)`
 
-Returns all completed sessions for the authenticated user. No parameters.
+Queries `getCompletedSessionSummariesV2(vehicleId: String!, pageSize: Int, searchAfter: String)` and follows `pageInfo.nextCursor` (max `pageSize` 100, cap 30 pages). Maps each item to the legacy flat shape (`startInstant`, `totalEnergyKwh`, `rangeAddedKm`, `vendor`, `city`, `paidTotal`, ...). The v1 `getCompletedSessionSummaries` still validates but returns `[]` (Oct 2026).
 
 ### `getChargingSchedule(vehicleId)`
 
@@ -152,4 +154,4 @@ if (myKeys.some((k) => k in state)) {
 ## Additional Resources
 
 - **`references/vehicle-state-properties.md`** — Complete tables of all confirmed-working vehicle state properties with types and example values, charging session/history/schedule fields, and a list of field names that were probed and do NOT exist. Consult before adding any new field.
-  - Two read-only queries are verified working but not yet implemented: `getLiveSessionHistory(vehicleId: ID!)` (charging power chart) and `getRegisteredWallboxes` (home Wall Charger status). Full schemas are in the reference under "Additional Queries → Confirmed working."
+  - Verified read-only queries not yet implemented as tools: `getRegisteredWallboxes`, `getSessionStatusByVehicleId`, `Vehicle.estimatedRange(startSoc)`, and the `chartData` series of `getLiveSessionHistory`. Schemas are in the reference under "Additional Queries → Confirmed working."
