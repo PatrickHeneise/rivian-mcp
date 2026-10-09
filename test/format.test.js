@@ -223,6 +223,38 @@ describe('formatChargingHistory', () => {
 
 // ── formatChargingSession ───────────────────────────────────────────
 
+describe('formatVehicleState new fields', () => {
+  const ts = '2026-10-09T22:00:00Z'
+  const base = {
+    chargerStatus: { timeStamp: ts, value: 'chrgr_sts_not_connected' },
+    chargingDisabledAC: { timeStamp: ts, value: 0 },
+    chargingDisabledAll: { timeStamp: ts, value: 0 },
+    closureChargePortDoorNextAction: { timeStamp: ts, value: 'open_not_available' },
+    windowsNextAction: { timeStamp: ts, value: 'Open_not_available' },
+    btmOcHardwareFailureStatus: { timeStamp: ts, value: 'dtc_not_set' },
+  }
+
+  test('hides idle values and keeps them out of Other', () => {
+    const out = strip(formatVehicleState(base))
+    assert.doesNotMatch(out, /Charging disabled/)
+    assert.doesNotMatch(out, /BTM hardware/)
+    assert.doesNotMatch(out, /open_not_available|Open_not_available/i)
+    assert.doesNotMatch(out, /Other/)
+  })
+
+  test('surfaces disabled charging and BTM faults', () => {
+    const out = strip(
+      formatVehicleState({
+        ...base,
+        chargingDisabledAC: { timeStamp: ts, value: 1 },
+        btmOcHardwareFailureStatus: { timeStamp: ts, value: 'dtc_set' },
+      }),
+    )
+    assert.match(out, /Charging disabled\s+AC/)
+    assert.match(out, /BTM hardware\s+dtc_set/)
+  })
+})
+
 describe('formatChargingSession', () => {
   test('renders active charging session', () => {
     const out = strip(formatChargingSession(chargingSession))
@@ -291,6 +323,23 @@ describe('formatUserInfo', () => {
   test('shows OTA early access', () => {
     const out = strip(formatUserInfo(userInfo))
     assert.match(out, /OTA early access\s+Yes/)
+  })
+
+  test('shows build configuration and assembly date', () => {
+    const out = strip(formatUserInfo(userInfo))
+    assert.match(out, /Trim\s+R1S Dual/)
+    assert.match(out, /Drive\s+Dual-motor AWD/)
+    assert.match(out, /Exterior\s+Glacier White paint/)
+    assert.match(out, /Wheels\s+20" All Season/)
+    assert.match(out, /Built\s+2024-07-30/)
+  })
+
+  test('hides OTA early access when false', () => {
+    const car = { ...userInfo.vehicles[0].vehicle, otaEarlyAccessStatus: false }
+    const out = strip(
+      formatUserInfo({ ...userInfo, vehicles: [{ ...userInfo.vehicles[0], vehicle: car }] }),
+    )
+    assert.doesNotMatch(out, /OTA early access/)
   })
 
   test('handles no vehicles', () => {
