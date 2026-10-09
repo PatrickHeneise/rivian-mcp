@@ -229,6 +229,7 @@ describe('formatChargingSession', () => {
     assert.match(out, /52%/)
     assert.match(out, /11\.2 kW/)
     assert.match(out, /\$6\.48/)
+    assert.match(out, /Location\s+Cheyenne, WY — Cheyenne — Rivian Adventure Network/)
   })
 
   test('handles null session', () => {

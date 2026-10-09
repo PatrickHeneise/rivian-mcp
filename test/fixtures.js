@@ -372,6 +372,12 @@ export const chargingSession = {
   currentPrice: 6.48,
   currentCurrency: '$',
   vehicleChargerState: { value: 'charging' },
+  timeReady: { value: '2026-10-09T23:30:00Z' },
+  location: {
+    name: 'Cheyenne, WY',
+    city: 'Cheyenne',
+    operator: { name: 'Rivian Adventure Network' },
+  },
 }
 
 export const userInfo = {
