@@ -55,6 +55,15 @@ describe('formatVehicleState', () => {
     assert.match(out, /Time to full\s+3h 5m/)
   })
 
+  test('hides time to full when the estimate is not valid', () => {
+    const state = {
+      ...vehicleStateCharging,
+      chargingTimeEstimationValidity: { timeStamp: 't', value: 'SNA' },
+    }
+    const out = strip(formatVehicleState(state))
+    assert.doesNotMatch(out, /Time to full/)
+  })
+
   test('hides remoteChargingAvailable (numeric flag)', () => {
     const out = strip(formatVehicleState(vehicleState))
     assert.doesNotMatch(out, /remoteChargingAvailable/)
