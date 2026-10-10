@@ -4,6 +4,7 @@ import {
   getChargingHistory,
   getAllChargingHistory,
   getLiveChargingSession,
+  getChargingState,
 } from '../lib/rivian-api.js'
 
 // ── Mock fetch ────────────────────────────────────────────────────────
@@ -188,4 +189,17 @@ test('getLiveChargingSession returns null when no session is active', async () =
     getLiveSessionHistory: { transactionId: null, startTime: null, soc: null, chartData: [] },
   })
   assert.equal(await getLiveChargingSession('v1'), null)
+})
+
+// ── getChargingState ──────────────────────────────────────────────────
+
+test('getChargingState reads only the charging fields from vehicle state', async () => {
+  responses.push({ vehicleState: { chargerState: { timeStamp: 't', value: 'charging_active' } } })
+  const state = await getChargingState('v1')
+  assert.equal(state.chargerState.value, 'charging_active')
+  assert.equal(requests[0].variables.vehicleID, 'v1')
+  for (const field of ['batteryLevel', 'batteryLimit', 'timeToEndOfCharge', 'chargerState']) {
+    assert.match(requests[0].query, new RegExp(`${field} \\{ timeStamp value \\}`))
+  }
+  assert.doesNotMatch(requests[0].query, /gnssLocation/)
 })

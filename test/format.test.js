@@ -275,6 +275,32 @@ describe('formatChargingSession', () => {
     const out = strip(formatChargingSession(null))
     assert.match(out, /No active charging session/)
   })
+
+  test('falls back to vehicle state when the live session is empty but the car charges', () => {
+    const out = strip(formatChargingSession(null, vehicleStateCharging))
+    assert.match(out, /Charging Session/)
+    assert.match(out, /43%/)
+    assert.match(out, /Charge limit\s+90%/)
+    assert.match(out, /Time to full\s+3h 5m/)
+    assert.match(out, /no live session details/)
+    assert.doesNotMatch(out, /No active charging session/)
+  })
+
+  test('hides time to full when the estimate is not valid', () => {
+    const ts = '2026-10-10T01:32:42.317Z'
+    const state = {
+      ...vehicleStateCharging,
+      chargingTimeEstimationValidity: { timeStamp: ts, value: 'SNA' },
+    }
+    const out = strip(formatChargingSession(null, state))
+    assert.match(out, /Charger state\s+charging_active/)
+    assert.doesNotMatch(out, /Time to full/)
+  })
+
+  test('reports no session when the vehicle is not charging', () => {
+    const out = strip(formatChargingSession(null, vehicleState))
+    assert.match(out, /No active charging session/)
+  })
 })
 
 // ── formatChargingSchedule ──────────────────────────────────────────

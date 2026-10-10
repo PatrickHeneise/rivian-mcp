@@ -182,7 +182,10 @@ server.tool(
     try {
       requireAuth()
       const vehicleId = await resolveVehicleId()
-      return text(format.formatChargingSession(await rivian.getLiveChargingSession(vehicleId)))
+      const session = await rivian.getLiveChargingSession(vehicleId)
+      // An empty live session does not mean the vehicle is idle; check vehicle state
+      const state = session ? null : await rivian.getChargingState(vehicleId)
+      return text(format.formatChargingSession(session, state))
     } catch (err) {
       return text(err.message)
     }
