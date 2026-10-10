@@ -58,6 +58,51 @@ test('getChargingHistory pages with searchAfter until hasNextPage is false', asy
   )
 })
 
+test('getChargingHistory fetches past 30 pages', async () => {
+  const pages = 31
+  for (let i = 0; i < pages; i++) {
+    const last = i === pages - 1
+    responses.push({
+      getCompletedSessionSummariesV2: {
+        items: [item(`t${i}`)],
+        pageInfo: { nextCursor: last ? null : `cur${i}`, hasNextPage: !last },
+      },
+    })
+  }
+  const sessions = await getChargingHistory('v1')
+  assert.equal(requests.length, pages)
+  assert.equal(sessions.length, pages)
+})
+
+test('getChargingHistory throws on a repeated cursor', async () => {
+  const page = () => ({
+    getCompletedSessionSummariesV2: {
+      items: [item('a')],
+      pageInfo: { nextCursor: 'same', hasNextPage: true },
+    },
+  })
+  responses.push(page(), page(), page())
+  await assert.rejects(getChargingHistory('v1'), /repeated cursor/)
+})
+
+test('getChargingHistory throws when a later page is null', async () => {
+  responses.push(
+    {
+      getCompletedSessionSummariesV2: {
+        items: [item('a')],
+        pageInfo: { nextCursor: 'cur1', hasNextPage: true },
+      },
+    },
+    { getCompletedSessionSummariesV2: null },
+  )
+  await assert.rejects(getChargingHistory('v1'), /page 2 after 1 sessions/)
+})
+
+test('getChargingHistory returns null when the first page is null', async () => {
+  responses.push({ getCompletedSessionSummariesV2: null })
+  assert.equal(await getChargingHistory('v1'), null)
+})
+
 test('getChargingHistory maps V2 items to the flat session shape', async () => {
   responses.push({
     getCompletedSessionSummariesV2: {
