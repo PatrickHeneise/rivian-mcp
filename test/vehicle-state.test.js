@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { getVehicleState } from '../lib/rivian-api.js'
+import { getVehicleState, getUserInfo } from '../lib/rivian-api.js'
 
 // ── Mock fetch ────────────────────────────────────────────────────────
 
@@ -89,4 +89,49 @@ test('query uses correct operation name and variable', async () => {
   await getVehicleState('test-id')
   assert.match(capturedQuery, /query GetVehicleState\(\$vehicleID: String!\)/)
   assert.match(capturedQuery, /vehicleState\(id: \$vehicleID\)/)
+})
+
+// ── Oct 2026 discovery ────────────────────────────────────────────────
+
+test('default set includes fields confirmed in Oct 2026', async () => {
+  await getVehicleState('test-id')
+  for (const field of [
+    'chargingDisabledAC',
+    'chargingDisabledAll',
+    'closureChargePortDoorNextAction',
+    'closureSideBinLeftNextAction',
+    'closureSideBinRightNextAction',
+    'windowsNextAction',
+    'btmOcHardwareFailureStatus',
+  ]) {
+    assert.match(capturedQuery, new RegExp(`${field} \\{ timeStamp value \\}`), field)
+  }
+})
+
+test('default set excludes subscription-only fields that HTTP rejects', async () => {
+  await getVehicleState('test-id')
+  for (const field of [
+    'activeDriverName',
+    'chargingDisabledACFaultState',
+    'chargingTripTargetSoc',
+    'chargingTripTargetMinsRemaining',
+    'coldRangeNotification',
+    'tirePressureFrontLeft ',
+  ]) {
+    assert.ok(!capturedQuery.includes(field), `${field.trim()} must not be in the HTTP query`)
+  }
+})
+
+test('getUserInfo requests build configuration and assembly date', async () => {
+  await getUserInfo()
+  assert.match(capturedQuery, /actualGeneralAssemblyDate/)
+  for (const option of [
+    'trimOption',
+    'driveSystemOption',
+    'exteriorColorOption',
+    'interiorColorOption',
+    'wheelOption',
+  ]) {
+    assert.match(capturedQuery, new RegExp(`${option} \\{ optionId optionName \\}`), option)
+  }
 })

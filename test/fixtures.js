@@ -372,6 +372,12 @@ export const chargingSession = {
   currentPrice: 6.48,
   currentCurrency: '$',
   vehicleChargerState: { value: 'charging' },
+  timeReady: { value: '2026-10-09T23:30:00Z' },
+  location: {
+    name: 'Cheyenne, WY',
+    city: 'Cheyenne',
+    operator: { name: 'Rivian Adventure Network' },
+  },
 }
 
 export const userInfo = {
@@ -387,7 +393,18 @@ export const userInfo = {
         modelYear: 2025,
         make: 'RIVIAN',
         model: 'R1S',
-        otaEarlyAccessStatus: 'OPTED_IN',
+        otaEarlyAccessStatus: true,
+        actualGeneralAssemblyDate: '2024-07-30',
+        mobileConfiguration: {
+          trimOption: { optionId: 'BLD-DR1S', optionName: 'R1S Dual' },
+          driveSystemOption: { optionId: 'MOT-201', optionName: 'Dual-motor AWD' },
+          exteriorColorOption: { optionId: 'EXP-GWT', optionName: 'Glacier White paint' },
+          interiorColorOption: {
+            optionId: 'INT-BMP',
+            optionName: 'Black Mountain + Dark Ash Wood',
+          },
+          wheelOption: { optionId: 'WHL-0BS', optionName: '20" All Season' },
+        },
         currentOTAUpdateDetails: { version: '2025.42.0' },
         availableOTAUpdateDetails: null,
       },
