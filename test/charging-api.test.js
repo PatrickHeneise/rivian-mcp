@@ -1,6 +1,10 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { getChargingHistory, getLiveChargingSession } from '../lib/rivian-api.js'
+import {
+  getChargingHistory,
+  getAllChargingHistory,
+  getLiveChargingSession,
+} from '../lib/rivian-api.js'
 
 // ── Mock fetch ────────────────────────────────────────────────────────
 
@@ -135,6 +139,33 @@ test('getChargingHistory maps V2 items to the flat session shape', async () => {
   assert.equal(paid.currencyCode, 'USD')
   assert.equal(home.vendor, null)
   assert.equal(home.paidTotal, null)
+})
+
+test('getAllChargingHistory merges every vehicle newest first', async () => {
+  responses.push(
+    { currentUser: { vehicles: [{ id: 'v1' }, { id: 'v2' }] } },
+    {
+      getCompletedSessionSummariesV2: {
+        items: [item('old', { startDateTime: '2026-09-01T10:00:00Z' })],
+        pageInfo: { nextCursor: null, hasNextPage: false },
+      },
+    },
+    {
+      getCompletedSessionSummariesV2: {
+        items: [item('new', { startDateTime: '2026-10-01T10:00:00Z' })],
+        pageInfo: { nextCursor: null, hasNextPage: false },
+      },
+    },
+  )
+  const sessions = await getAllChargingHistory()
+  assert.deepEqual(
+    requests.slice(1).map((r) => r.variables.vehicleId),
+    ['v1', 'v2'],
+  )
+  assert.deepEqual(
+    sessions.map((s) => s.transactionId),
+    ['new', 'old'],
+  )
 })
 
 // ── getLiveChargingSession ────────────────────────────────────────────

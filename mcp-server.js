@@ -196,8 +196,7 @@ server.tool(
   async () => {
     try {
       requireAuth()
-      const vehicleId = await resolveVehicleId()
-      return text(format.formatChargingHistory(await rivian.getChargingHistory(vehicleId)))
+      return text(format.formatChargingHistory(await rivian.getAllChargingHistory()))
     } catch (err) {
       return text(err.message)
     }
