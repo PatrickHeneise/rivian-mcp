@@ -51,7 +51,7 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `chargerState`                    | String     | `"charging_ready"`, `"charging_active"`, `"charging_stopped"`                                  |
 | `chargePortState`                 | String     | `"close"`, `"open"`, `"Locked"`                                                                |
 | `chargerDerateStatus`             | String     | `"NONE"` (derate info during charging)                                                         |
-| `chargingTimeEstimationValidity`  | String     | `"SNA"` when idle; valid while charging                                                        |
+| `chargingTimeEstimationValidity`  | String     | `"SNA"` when idle; also `"SNA"` during a live charge on Oct 10, 2026                           |
 | `chargingDisabledAC`              | Int        | `0` = AC charging allowed (added Oct 2026)                                                     |
 | `chargingDisabledAll`             | Int        | `0` = charging allowed (added Oct 2026)                                                        |
 | `closureChargePortDoorNextAction` | String     | `"open_not_available"` (added Oct 2026)                                                        |
@@ -229,7 +229,7 @@ Seen Oct 2026 (2025 R1S): `ACTIVE_TRIP`, `AUTO_VENT`, `CHARG_DATA_PX`, `CHARG_NT
 
 ## Live Charging Session (`getLiveSessionHistory`)
 
-`getLiveSessionData` no longer exists (rejected Oct 2026: `Did you mean "getLiveSessionHistory"`). Its fields moved to `getLiveSessionHistory(vehicleId: ID!)` on the charging endpoint. When not charging, every field is `null` and `chartData` is `[]`.
+`getLiveSessionData` no longer exists (rejected Oct 2026: `Did you mean "getLiveSessionHistory"`). Its fields moved to `getLiveSessionHistory(vehicleId: ID!)` on the charging endpoint. When not charging, every field is `null` and `chartData` is `[]`. The same all-null shape came back during an active charge on Oct 10, 2026 (vehicle state: `chargerState: charging_active`, `chargerStatus: chrgr_sts_connected_charging`). 926 of this account's 962 history sessions have no charger data (`vendor`, `isHomeCharger`, `isPublic` all `null`). Not verified: whether the query fills in during a Rivian Adventure Network or other network session.
 
 Record fields (`FloatValueRecord` / `StringValueRecord`) use `{ value updatedAt }`.
 
@@ -473,7 +473,7 @@ Upstream also lists `closureChargePortDoorNextAction` and `chargingTimeEstimatio
 
 Both return data (bodies from rivianmate `server/src/rivian/graphql.ts`).
 
-- `subscription chargingSession($vehicleID: String!) { chargingSession(vehicleId: $vehicleID) { chartData { soc powerKW startTime endTime timeEstimationValidityStatus vehicleChargerState } liveData { powerKW kilometersChargedPerHour rangeAddedThisSession totalChargedEnergy timeElapsed timeRemaining price currency isFreeSession vehicleChargerState startTime } } }`. When not charging, it returns `chartData: []` and all-null `liveData`.
+- `subscription chargingSession($vehicleID: String!) { chargingSession(vehicleId: $vehicleID) { chartData { soc powerKW startTime endTime timeEstimationValidityStatus vehicleChargerState } liveData { powerKW kilometersChargedPerHour rangeAddedThisSession totalChargedEnergy timeElapsed timeRemaining price currency isFreeSession vehicleChargerState startTime } } }`. When not charging, it returns `chartData: []` and all-null `liveData`. It returned the same during the active charge on Oct 10, 2026, with no update within 25 s.
 - `subscription vehicleDepartureSchedules($vehicleID: String!) { vehicleDepartureSchedules(vehicleId: $vehicleID) { id name isEnabled occurrence { __typename ... on RepeatsWeekly { days startsAtMin } } departureSettings { comfortSettings { surfaceHeatVentLevels { frontLeftSeat frontRightSeat } cabinTempCelsius frontDefogDefrost } } } }`. Returns the saved departure schedules, for example `{ name: "Schedule 1", isEnabled: false, occurrence: { days: [Mon..Fri], startsAtMin: 735 }, ... cabinTempCelsius: 23 }`. HTTP rejects `Vehicle.departureSchedules`, so this subscription is the only read path found.
 
 ### Drive and trip history

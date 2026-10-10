@@ -79,7 +79,11 @@ Returns `currentOTAUpdateDetails`, `availableOTAUpdateDetails`, and `vehicleStat
 
 ### `getLiveChargingSession(vehicleId)`
 
-Queries `getLiveSessionHistory(vehicleId: ID!)` on the charging endpoint. `getLiveSessionData` was removed (rejected Oct 2026) and its fields moved to `getLiveSessionHistory`. The query returns an all-null object when not charging; the function returns `null` in that case.
+Queries `getLiveSessionHistory(vehicleId: ID!)` on the charging endpoint. `getLiveSessionData` was removed (rejected Oct 2026) and its fields moved to `getLiveSessionHistory`. The query returns an all-null object when not charging, and also during an active charge it does not track (live, Oct 10, 2026: `chargerState: charging_active`, every field `null`). The function returns `null` in both cases.
+
+### `getChargingState(vehicleId)`
+
+Reads `batteryLevel`, `batteryLimit`, `timeToEndOfCharge`, `chargerState` and `chargingTimeEstimationValidity` from vehicle state. `rivian_get_charging_session` calls it when `getLiveChargingSession` returns `null`, and `formatChargingSession(null, state)` shows the charge when `chargerState` is `charging_active`.
 
 ### `getChargingHistory(vehicleId)`
 
