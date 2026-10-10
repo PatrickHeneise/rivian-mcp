@@ -168,6 +168,11 @@ test('getAllChargingHistory merges every vehicle newest first', async () => {
   )
 })
 
+test('getAllChargingHistory returns null when currentUser is null', async () => {
+  responses.push({ currentUser: null })
+  assert.equal(await getAllChargingHistory(), null)
+})
+
 // ── getLiveChargingSession ────────────────────────────────────────────
 
 test('getLiveChargingSession queries getLiveSessionHistory', async () => {
