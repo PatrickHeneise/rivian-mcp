@@ -210,6 +210,13 @@ describe('formatChargingHistory', () => {
     assert.match(out, /ChargePoint/)
   })
 
+  test('limits to the newest sessions and says so', () => {
+    const out = strip(formatChargingHistory(chargingSessions, 2))
+    assert.match(out, /newest 2 of 3 sessions/)
+    assert.match(out, /\$12\.35/)
+    assert.doesNotMatch(out, /\$7\.80/)
+  })
+
   test('handles null sessions', () => {
     const out = strip(formatChargingHistory(null))
     assert.match(out, /expired/)

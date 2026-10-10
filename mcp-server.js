@@ -191,12 +191,19 @@ server.tool(
 
 server.tool(
   'rivian_get_charging_history',
-  'View past charging sessions — energy, cost, duration, and location for every charge.',
-  {},
-  async () => {
+  'View past charging sessions, newest first — energy, cost, duration, and location for each charge.',
+  {
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Number of newest sessions to show. Defaults to 25.'),
+  },
+  async ({ limit }) => {
     try {
       requireAuth()
-      return text(format.formatChargingHistory(await rivian.getAllChargingHistory()))
+      return text(format.formatChargingHistory(await rivian.getAllChargingHistory(), limit ?? 25))
     } catch (err) {
       return text(err.message)
     }
