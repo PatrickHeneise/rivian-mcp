@@ -155,3 +155,4 @@ if (myKeys.some((k) => k in state)) {
 
 - **`references/vehicle-state-properties.md`** — Complete tables of all confirmed-working vehicle state properties with types and example values, charging session/history/schedule fields, and a list of field names that were probed and do NOT exist. Consult before adding any new field.
   - Verified read-only queries not yet implemented as tools: `getRegisteredWallboxes`, `getSessionStatusByVehicleId`, `Vehicle.estimatedRange(startSoc)`, and the `chartData` series of `getLiveSessionHistory`. Schemas are in the reference under "Additional Queries → Confirmed working."
+  - Websocket subscriptions (`VehicleState` with subscription-only fields, `ParallaxMessages` with 25 RVM topics, `chargingSession`, `vehicleDepartureSchedules`) are verified live but not used in code. See the reference under "Subscriptions (websocket)". Use one `VehicleState` subscription per vehicle: parallel ones hit `SUBSCRIPTION_LIMIT_EXCEEDED`.

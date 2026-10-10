@@ -381,9 +381,11 @@ Rejected on `User`: `userId`, `locale`, `preferences`, `orders`.
 
 **`getWallboxStatus`** (charging endpoint). Validates with no arguments. Returns `NOT_FOUND Wallbox not found` without a linked wallbox.
 
-**`getSessionStatusByVehicleId(vehicleId: ID!)`** (charging endpoint). Returns `SessionStartResponse` for the last charge-start job: `id sessionId status chargerId locationId evseId userId errorId authDateTime createdTime lastUpdatedTime location`. Live value: `status: "Accepted"` for an Aug 12, 2026 Rivian Adventure Network session. `getSessionStatus(jobId: ID!)` returns the same type by job id.
+**`getSessionStatusByVehicleId(vehicleId: ID!)`** (charging endpoint). Returns `SessionStartResponse` for the last charge-start job: `id sessionId status chargerId locationId evseId userId errorId authDateTime createdTime lastUpdatedTime location`. Live value: `status: "Accepted"` for an Aug 12, 2026 Rivian Adventure Network session. `getSessionStatus(jobId: ID!)` validates but returns `FORBIDDEN 403: Forbidden`, even for this account's own job id.
 
-**`chargepoint { getStatus { status redirectUrl } }`** and **`payment { getPaymentMethods { ... } }`** (charging endpoint). Both validate. Not queried for data.
+**`chargepoint { getStatus { status redirectUrl } }`** (charging endpoint). Returns `status: null` for an account with no ChargePoint link.
+
+**`payment { getPaymentMethods { default card { ... } } }`** (charging endpoint). Returned `[]` for this account. Card fields not queried.
 
 **`cloudConnection` last-sync**: `vehicleState(id:).cloudConnection { lastSync isOnline }` covers the "GetVehicleLastConnection" use case.
 
@@ -396,7 +398,7 @@ Rejected on `User`: `userId`, `locale`, `preferences`, `orders`.
 **Gateway endpoint (`/gateway/graphql`):**
 
 - `GetEstimatedRange(soc, driveMode, trailerProfile)`: estimate range (see `Vehicle.estimatedRange` above)
-- `planTrip` / `planTripWithMultiStop`: trip planning with charging stops
+- `planTrip` / `planTripWithMultiStop`: trip planning with charging stops. `planTrip` with the upstream argument shape (`origin`, `destination`, `bearing`, `vehicleId`, `startingSoc`, `startingRangeMeters`) fails gateway validation (Oct 2026). The gateway hides why.
 - `places`: place search (Google Places integration)
 
 **Charging endpoint (`/chrg/user/graphql`):**
@@ -410,38 +412,77 @@ Rejected on `User`: `userId`, `locale`, `preferences`, `orders`.
 
 ## Subscriptions (websocket)
 
-Source: a separate "drive data audit" session on Oct 9, 2026. It read bretterer/rivian-python-client and blike/rivianmate (incl. PR #15). It ran the items marked "live" against the same 2025 R1S. This repo does not use subscriptions yet.
+Verified live on Oct 9, 2026 (2025 R1S, 2026.31.0, parked) with read-only subscriptions. The topic list and the GNSS field map came from a separate "drive data audit" session, which read bretterer/rivian-python-client and blike/rivianmate (incl. PR #15). This repo does not use subscriptions yet.
 
-- **URL:** `wss://api.rivian.com/gql-consumer-subscriptions/graphql`, subprotocol `graphql-transport-ws`. No custom headers needed (live).
-- **connection_init:** `{"type":"connection_init","payload":{"client-name":"com.rivian.ios.consumer-apollo-ios","client-version":"1.13.0-1494","dc-cid":"m-ios-<uuid4>","u-sess":"<userSessionToken>"}}` returns `connection_ack` (live). Then send `{"id":"<uuid>","type":"subscribe","payload":{operationName,query,variables}}`. Data arrives as `next` messages.
-- **`VehicleState`:** `subscription VehicleState($vehicleID: String!) { vehicleState(id: $vehicleID) { ... } }` returns `gnssLocation` and `gearStatus` (live).
-  - Upstream marks these fields subscription-only, and HTTP rejects them (confirmed Oct 2026): `activeDriverName`, `chargingDisabledACFaultState`, `chargingTripTargetSoc`, `chargingTripTargetMinsRemaining`, `coldRangeNotification`, `tirePressureFrontLeft/FrontRight/RearLeft/RearRight`.
-  - Upstream also lists `closureChargePortDoorNextAction` and `chargingTimeEstimationValidity` as subscription-only. Both work over HTTP.
-- **`ParallaxMessages`:** `subscription ParallaxMessages($vehicleId: String!, $rvms: [String!]) { parallaxMessages(vehicleId: $vehicleId, rvms: $rvms) { payload timestamp rvm } }`.
-  - `payload` is base64 protobuf. `timestamp` is epoch ms.
-  - It returns one message per topic right away, even when parked (live).
-  - Gate it on the `VEHICLE_CONNECTIVITY_PARALLAX` supported feature.
-  - RVM topics (from source):
-    - Drive and power: `dynamics.vehicle.gnss`, `dynamics.vehicle.odometer`, `dynamics.tires.state`, `vehicle.power.state` (1 sleep, 2 standby, 3 ready, 4 go).
-    - Navigation: `navigation.navigation_service.trip_info` and `trip_progress`. These cover active navigation only, and the payload is empty without it (live).
-    - Body and cabin: `body.closures.states`, `body.locks.states`, `comfort.cabin.cabin_preconditioning_status`, `comfort.cabin.cabin_temperatures`, `comfort.cabin.defrost_defog_status`.
-    - Battery and energy graphs: `energy.high_voltage.battery_state`, `energy.high_voltage.battery_characteristics`, `energy_edge_compute.graphs.charging_graph_global`, `energy_edge_compute.graphs.charge_session_breakdown`, `energy_edge_compute.graphs.cold_weather_soc`, `energy_edge_compute.graphs.parked_energy_distributions`.
-    - Charging: `charging.session.status`, `charging.session.time_estimation`, `charging.session.trip_target`, `charging.session.soc_slider`, `charging.session.notification`, `charging.session.remote_command`, `charging.schedule.time_window`.
-    - Network: `vehicle.network.state`.
-  - `dynamics.vehicle.gnss` protobuf (live):
-    - 1: latitude (double)
-    - 2: longitude (double)
-    - 3: altitude in m (double)
-    - 5: bearing in degrees (float)
-    - 6: speed in m/s (float)
-    - 7, 8, 9: floats with unknown meaning, maybe accuracy values.
-    - 10: varint, likely GPS-epoch ms (add `315964800000` for Unix ms). This meaning is inferred.
-- **`chargingSession`** and **`vehicleDepartureSchedules`:** subscription bodies are in rivianmate `server/src/rivian/graphql.ts`. Not run.
-- **No drive or trip history:** no server-side drive history query is known.
-  - Rejected on the gateway without arguments: `getTrips`, `trips`, `tripHistory`, `driveHistory`, `getDrives`, `drives`, `getTripSummaries`, `tripSummaries`, `getDriveSessions`. A field that needs arguments would also fail that probe.
-  - `getSavedTrips` is valid and returns `[]` (trip planning).
-  - Third-party tools build drive logs by staying subscribed.
-- **RivianMate issue #14:** on a 2027 R2 (2026.31.40), `gnssLocation` and `activeDriverName` fail validation over the subscription. On the R1S, `VEHICLE_CONNECTIVITY_PARALLAX` is available and HTTP still returns fresh GNSS values. So the R2 failure is not caused by that flag.
+- **URL:** `wss://api.rivian.com/gql-consumer-subscriptions/graphql`, subprotocol `graphql-transport-ws`. No custom headers needed.
+- **connection_init:** `{"type":"connection_init","payload":{"client-name":"com.rivian.ios.consumer-apollo-ios","client-version":"1.13.0-1494","dc-cid":"m-ios-<uuid4>","u-sess":"<userSessionToken>"}}` returns `connection_ack`. Then send `{"id":"<uuid>","type":"subscribe","payload":{operationName,query,variables}}`. Data arrives as `next` messages. Each subscription sends its current value at once, then pushes changes.
+- **Subscription limit:** a second `VehicleState` subscription for the same `vehicleID` can fail with `BAD_REQUEST_ERROR` / `SUBSCRIPTION_LIMIT_EXCEEDED` ("Subscription with given values already exists"). 3 of 10 parallel `VehicleState` subscriptions on one connection succeeded. Put all fields in one `VehicleState` subscription per vehicle. 25 parallel `ParallaxMessages` subscriptions (one topic each) all succeeded.
+
+### `VehicleState`
+
+`subscription VehicleState($vehicleID: String!) { vehicleState(id: $vehicleID) { ... } }` accepts the HTTP fields plus the subscription-only ones. HTTP rejects the subscription-only fields.
+
+| Subscription-only field                               | Value (Oct 2026)                                       |
+| ----------------------------------------------------- | ------------------------------------------------------ |
+| `activeDriverName`                                    | `{ timeStamp, value }`, the driver profile name        |
+| `chargingDisabledACFaultState`                        | `0`                                                    |
+| `chargingTripTargetSoc`                               | `0` (no trip target)                                   |
+| `chargingTripTargetMinsRemaining`                     | `65535` (looks like a "not set" value; unverified)     |
+| `coldRangeNotification`                               | `"range_normal"`                                       |
+| `tirePressureFrontLeft/FrontRight/RearLeft/RearRight` | `null` with `{ timeStamp value }` (validates, no data) |
+
+Upstream also lists `closureChargePortDoorNextAction` and `chargingTimeEstimationValidity` as subscription-only. Both work over HTTP and over the subscription.
+
+### `ParallaxMessages`
+
+`subscription ParallaxMessages($vehicleId: String!, $rvms: [String!]) { parallaxMessages(vehicleId: $vehicleId, rvms: $rvms) { payload timestamp rvm } }`
+
+- `payload` is base64 protobuf. `timestamp` is epoch ms and shows when the vehicle last published that topic (can be weeks old).
+- Gate it on the `VEHICLE_CONNECTIVITY_PARALLAX` supported feature (`AVAILABLE` on the R1S).
+- Every topic below returned one message right away. "Matches" means the value equals an HTTP `vehicleState` field read at the same time. Those field meanings are inferred, not confirmed by a schema.
+
+| RVM topic                                                | Bytes | Fields seen                                                    | Notes                                                                                                             |
+| -------------------------------------------------------- | ----- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `dynamics.vehicle.gnss`                                  | 59    | 1 d, 2 d, 3 d, 5 f, 6 f, 7 f, 8 f, 9 f, 10 varint              | 1 lat, 2 long, 3 altitude m, 5 bearing deg, 6 speed m/s; 7-9 unknown; 10 likely GPS-epoch ms (add `315964800000`) |
+| `dynamics.vehicle.odometer`                              | 4     | 1 varint = `59059`                                             | km; matches `vehicleMileage` 59059421 m                                                                           |
+| `dynamics.tires.state`                                   | 98    | 1 varint, 2 × 4 nested (22 bytes each)                         | one nested message per tire; not decoded                                                                          |
+| `vehicle.power.state`                                    | 2     | 1 varint = `3`                                                 | 1 sleep, 2 standby, 3 ready, 4 go; matches `powerState` `"ready"`                                                 |
+| `navigation.navigation_service.trip_info`                | 0     | empty                                                          | no active navigation                                                                                              |
+| `navigation.navigation_service.trip_progress`            | 73    | 1 bytes, 2 bytes, 4 d = 57, 5 d = 9, 6 bytes                   | not empty without navigation (last trip?); not decoded                                                            |
+| `body.closures.states`                                   | 133   | 16 × nested field 1                                            | one entry per closure; not decoded                                                                                |
+| `body.locks.states`                                      | 66    | 11 × nested field 1                                            | not decoded                                                                                                       |
+| `comfort.cabin.cabin_preconditioning_status`             | 0     | empty                                                          | preconditioning off                                                                                               |
+| `comfort.cabin.cabin_temperatures`                       | 10    | 3 f = 24, 4 f = 22                                             | likely driver setpoint and cabin temp (°C)                                                                        |
+| `comfort.cabin.defrost_defog_status`                     | 2     | 1 varint = `4`                                                 | enum; meaning unknown                                                                                             |
+| `energy.high_voltage.battery_state`                      | 22    | 1 nested (18), 3 empty                                         | not decoded                                                                                                       |
+| `energy.high_voltage.battery_characteristics`            | 10    | 5 f = 142.235, 6 f = 141.6                                     | 5 matches `batteryCapacity` (kWh)                                                                                 |
+| `energy_edge_compute.graphs.charging_graph_global`       | 574   | 23 × nested field 1                                            | last charge curve samples; not decoded                                                                            |
+| `energy_edge_compute.graphs.charge_session_breakdown`    | 25    | 1 f = 0.9, 2 f = 0.7, 5 f = 0.2, 6 = 43, 8 = 2, 12 = 1, 13 = 1 | 1 matches the last session's `totalEnergy` (0.9 kWh)                                                              |
+| `energy_edge_compute.graphs.cold_weather_soc`            | 2     | 1 varint = `34`                                                | close to `batteryLevel` 33.8                                                                                      |
+| `energy_edge_compute.graphs.parked_energy_distributions` | 94    | 3 nested                                                       | not decoded                                                                                                       |
+| `charging.session.status`                                | 4     | 1 = 1, 2 = 1                                                   | enum; not decoded                                                                                                 |
+| `charging.session.time_estimation`                       | 0     | empty                                                          | not charging                                                                                                      |
+| `charging.session.trip_target`                           | 4     | 2 varint = `65535`                                             | matches `chargingTripTargetMinsRemaining`                                                                         |
+| `charging.session.soc_slider`                            | 2     | 1 varint = `85`                                                | likely the charge limit %                                                                                         |
+| `charging.session.notification`                          | 2     | 1 = 1                                                          | not decoded                                                                                                       |
+| `charging.session.remote_command`                        | 2     | 1 = 1                                                          | state of the last remote charge command; subscribing sends nothing                                                |
+| `charging.schedule.time_window`                          | 0     | empty                                                          |                                                                                                                   |
+| `vehicle.network.state`                                  | 77    | 1 = 2, 2 × 4 nested, 3 = 2, 4 bytes, 5 bytes                   | not decoded                                                                                                       |
+
+### `chargingSession` and `vehicleDepartureSchedules`
+
+Both return data (bodies from rivianmate `server/src/rivian/graphql.ts`).
+
+- `subscription chargingSession($vehicleID: String!) { chargingSession(vehicleId: $vehicleID) { chartData { soc powerKW startTime endTime timeEstimationValidityStatus vehicleChargerState } liveData { powerKW kilometersChargedPerHour rangeAddedThisSession totalChargedEnergy timeElapsed timeRemaining price currency isFreeSession vehicleChargerState startTime } } }`. When not charging, it returns `chartData: []` and all-null `liveData`.
+- `subscription vehicleDepartureSchedules($vehicleID: String!) { vehicleDepartureSchedules(vehicleId: $vehicleID) { id name isEnabled occurrence { __typename ... on RepeatsWeekly { days startsAtMin } } departureSettings { comfortSettings { surfaceHeatVentLevels { frontLeftSeat frontRightSeat } cabinTempCelsius frontDefogDefrost } } } }`. Returns the saved departure schedules, for example `{ name: "Schedule 1", isEnabled: false, occurrence: { days: [Mon..Fri], startsAtMin: 735 }, ... cabinTempCelsius: 23 }`. HTTP rejects `Vehicle.departureSchedules`, so this subscription is the only read path found.
+
+### Drive and trip history
+
+- No server-side drive history query is known.
+- Rejected on the gateway without arguments: `getTrips`, `trips`, `tripHistory`, `driveHistory`, `getDrives`, `drives`, `getTripSummaries`, `tripSummaries`, `getDriveSessions`. A field that needs arguments would also fail that probe.
+- `getSavedTrips` is valid and returns `[]` (trip planning).
+- Third-party tools build drive logs by staying subscribed.
+- RivianMate issue #14: on a 2027 R2 (2026.31.40), `gnssLocation` and `activeDriverName` fail validation over the subscription. On the R1S, both validate, so that failure is specific to the R2 or its firmware.
 
 ---
 
