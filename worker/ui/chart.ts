@@ -66,14 +66,7 @@ function drawLine(width: number, opts: LineChartOptions): HTMLElement {
   const svg = s(
     'svg',
     { width, height: HEIGHT, viewBox: `0 0 ${width} ${HEIGHT}`, role: 'img' },
-    ...ticks.map((t) =>
-      s(
-        'g',
-        { class: 'grid' },
-        s('line', { x1: PAD.left, x2: width - PAD.right, y1: py(t), y2: py(t) }),
-        s('text', { x: PAD.left - 6, y: py(t) + 4, 'text-anchor': 'end' }, opts.formatY(t, digits)),
-      ),
-    ),
+    ...gridLines(ticks, width, py, (t) => opts.formatY(t, digits)),
     s('text', { class: 'axis', x: PAD.left, y: HEIGHT - 4 }, opts.formatX(x0)),
     s(
       'text',
@@ -139,14 +132,7 @@ function drawBars(
   const svg = s(
     'svg',
     { width, height: HEIGHT, viewBox: `0 0 ${width} ${HEIGHT}`, role: 'img' },
-    ...ticks.map((t) =>
-      s(
-        'g',
-        { class: 'grid' },
-        s('line', { x1: PAD.left, x2: width - PAD.right, y1: py(t), y2: py(t) }),
-        s('text', { x: PAD.left - 6, y: py(t) + 4, 'text-anchor': 'end' }, formatY(t, digits)),
-      ),
-    ),
+    ...gridLines(ticks, width, py, (t) => formatY(t, digits)),
     bars.length > 0 && s('text', { class: 'axis', x: PAD.left, y: HEIGHT - 4 }, bars[0].label),
     bars.length > 1 &&
       s(
@@ -185,6 +171,23 @@ function drawBars(
     svg.append(mark, hit)
   })
   return h('div', { class: 'plot' }, svg, tip)
+}
+
+/** A horizontal gridline and y-axis label per tick. */
+function gridLines(
+  ticks: number[],
+  width: number,
+  py: (y: number) => number,
+  label: (tick: number) => string,
+): SVGElement[] {
+  return ticks.map((t) =>
+    s(
+      'g',
+      { class: 'grid' },
+      s('line', { x1: PAD.left, x2: width - PAD.right, y1: py(t), y2: py(t) }),
+      s('text', { x: PAD.left - 6, y: py(t) + 4, 'text-anchor': 'end' }, label(t)),
+    ),
+  )
 }
 
 /** Bar path with rounded top corners, anchored square to the baseline. */
