@@ -93,6 +93,8 @@ export class Recorder extends DurableObject<Env> {
   /** Last stored charging sample per `${vehicleId} ${rvm}`. Lost on eviction, which only adds a row. */
   private lastSamples = new Map<string, LastSample>()
   private backoffMs = 0
+  /** No reconnect before this time. The 60 s watchdog alarm still runs, to flush points. */
+  private retryAt = 0
   private lastMessageAt: number | null = null
   private lastError: string | null = null
 
@@ -190,7 +192,13 @@ export class Recorder extends DurableObject<Env> {
       // The points stay buffered; the next watchdog alarm writes them again.
       await this.fail(error)
     }
-    await recoverConnection({
+    // During a backoff only the flush above runs.
+    if (Date.now() >= this.retryAt) await this.reconnect()
+    await this.scheduleAlarm()
+  }
+
+  private reconnect(): Promise<void> {
+    return recoverConnection({
       session: () => this.session(),
       storedVehicleCount: async () => (await this.vehicles()).length,
       discoverVehicles: async (session) => {
@@ -203,7 +211,6 @@ export class Recorder extends DurableObject<Env> {
       },
       fail: (error) => this.fail(error),
     })
-    await this.scheduleAlarm()
   }
 
   private async afterLogin(session: Session): Promise<Vehicle[]> {
@@ -211,6 +218,7 @@ export class Recorder extends DurableObject<Env> {
     await this.ctx.storage.put('vehicles', vehicles)
     this.lastError = null
     this.backoffMs = 0
+    this.retryAt = 0
     this.ws?.close(1000, 'Re-login')
     this.ws = null
     await this.openSocket()
@@ -304,6 +312,7 @@ export class Recorder extends DurableObject<Env> {
       ws.send(JSON.stringify({ type: 'pong' }))
     } else if (message.type === 'connection_ack') {
       this.backoffMs = 0
+      this.retryAt = 0
       for (const vehicle of vehicles) {
         ws.send(
           JSON.stringify({
@@ -443,6 +452,7 @@ export class Recorder extends DurableObject<Env> {
   private async fail(error: unknown): Promise<void> {
     this.lastError = error instanceof Error ? error.message : String(error)
     this.backoffMs = Math.min(Math.max(this.backoffMs * 2, BACKOFF_MIN_MS), BACKOFF_MAX_MS)
+    this.retryAt = Date.now() + this.backoffMs
     await this.ctx.storage.setAlarm(Date.now() + this.backoffMs)
   }
 

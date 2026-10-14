@@ -189,3 +189,16 @@ test('points survive a rejected D1 batch', async () => {
     [6_000],
   )
 })
+
+test('an early watchdog alarm does not reconnect during a backoff', async () => {
+  const t = await setup()
+  let attempts = 0
+  globalThis.fetch = (async () => {
+    attempts++
+    throw new Error('offline')
+  }) as typeof fetch
+  await t.internals.alarm()
+  assert.equal(attempts, 1)
+  await t.internals.alarm()
+  assert.equal(attempts, 1)
+})
