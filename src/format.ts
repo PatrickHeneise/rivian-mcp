@@ -351,12 +351,8 @@ export function formatVehicleState(state: VehicleState) {
     }
 
     const availVer = v('otaAvailableVersion')
-    if (availVer && !isZeroish(availVer)) {
-      printed.add('otaAvailableVersion')
-      lines.push(kv('Available update', c.yellow(availVer)))
-    } else {
-      printed.add('otaAvailableVersion')
-    }
+    printed.add('otaAvailableVersion')
+    if (availVer && !isZeroish(availVer)) lines.push(kv('Available update', c.yellow(availVer)))
 
     if ('otaAvailableVersionYear' in state) {
       printed.add('otaAvailableVersionYear')
@@ -430,12 +426,8 @@ export function formatVehicleState(state: VehicleState) {
     print('Drive mode', 'driveMode')
     print('Gear', 'gearStatus')
     const speed = num('gnssSpeed')
-    if (speed !== null && speed > 0) {
-      printed.add('gnssSpeed')
-      lines.push(kv('Speed', fmt(speed)))
-    } else {
-      printed.add('gnssSpeed')
-    }
+    printed.add('gnssSpeed')
+    if (speed !== null && speed > 0) lines.push(kv('Speed', fmt(speed)))
     print('Service mode', 'serviceMode')
     print('Car wash mode', 'carWashMode')
     lines.push('')
@@ -463,18 +455,14 @@ export function formatVehicleState(state: VehicleState) {
     printed.add('btmOcHardwareFailureStatus')
     if (btmOc && btmOc !== 'dtc_not_set') lines.push(kv('BTM hardware', c.yellow(btmOc)))
     const accelCold = num('limitedAccelCold')
+    printed.add('limitedAccelCold')
     if (accelCold !== null && accelCold > 0) {
-      printed.add('limitedAccelCold')
       lines.push(kv('Accel limited (cold)', c.yellow(`${accelCold}%`)))
-    } else {
-      printed.add('limitedAccelCold')
     }
     const regenCold = num('limitedRegenCold')
+    printed.add('limitedRegenCold')
     if (regenCold !== null && regenCold > 0) {
-      printed.add('limitedRegenCold')
       lines.push(kv('Regen limited (cold)', c.yellow(`${regenCold}%`)))
-    } else {
-      printed.add('limitedRegenCold')
     }
     lines.push('')
   }
