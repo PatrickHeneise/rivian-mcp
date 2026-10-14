@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
-import { afterEach, test } from 'node:test'
+import { afterEach, mock, test } from 'node:test'
 import { emptySession } from '../../src/rivian-api.ts'
 import './support/cloudflare-stub.ts'
 
@@ -138,6 +138,7 @@ const SLEEP = 'CAE='
 const realFetch = globalThis.fetch
 afterEach(() => {
   globalThis.fetch = realFetch
+  mock.restoreAll()
 })
 
 test('a replayed power sample older than the drive does not close it', async () => {
@@ -206,4 +207,28 @@ test('an early watchdog alarm does not reconnect during a backoff', async () => 
   assert.equal(attempts, 1)
   await t.internals.alarm()
   assert.equal(attempts, 1)
+})
+
+test('a power-down close that fails to write is retried as a close', async () => {
+  const t = await setup()
+  await openDrive(t, 1_000, 6_000)
+  t.hooks.failNext = true
+  await assert.rejects(t.power(SLEEP, 7_000), /D1 unavailable/)
+  // Inside the park grace period, so only the pending close can end the drive.
+  mock.method(Date, 'now', () => 8_000)
+  ;(t.recorder as unknown as { ws: object }).ws = {}
+  await t.internals.alarm()
+  const row = t.sqlite.prepare('SELECT ended_at FROM drives WHERE id = ?').get('v-6000')
+  assert.equal(row?.ended_at, 6_000)
+})
+
+test('a point after a failed close ends the old drive before it opens a new one', async () => {
+  const t = await setup()
+  await openDrive(t, 1_000, 6_000)
+  t.hooks.failNext = true
+  await assert.rejects(t.power(SLEEP, 7_000), /D1 unavailable/)
+  await t.gps(0.002, 12_000)
+  const ended = t.sqlite.prepare('SELECT ended_at FROM drives WHERE id = ?').get('v-6000')
+  assert.equal(ended?.ended_at, 6_000)
+  assert.equal(t.internals.states.get('v')?.drive?.id, 'v-12000')
 })

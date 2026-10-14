@@ -67,6 +67,8 @@ const PARALLAX_SUBSCRIPTION = `subscription ParallaxMessages($vehicleId: String!
 
 interface VehicleState {
   drive: Drive | null
+  /** The closed form of `drive` while its write is pending, so a retry closes instead of flushing it open. */
+  closing: Drive | null
   /** Where the vehicle parked: first point while parked, or the end of the last drive. Not persisted: after an eviction the next point replaces it. */
   parkedAt: Point | null
   /** Latest GPS point. Not persisted. */
@@ -185,7 +187,9 @@ export class Recorder extends DurableObject<Env> {
     const now = Date.now()
     try {
       for (const [vehicleId, state] of this.states) {
-        if (state.drive && shouldClose(state.drive, now, null)) await this.finishDrive(vehicleId)
+        if (state.closing || (state.drive && shouldClose(state.drive, now, null))) {
+          await this.finishDrive(vehicleId)
+        }
       }
       await this.flushAll()
     } catch (error) {
@@ -397,7 +401,9 @@ export class Recorder extends DurableObject<Env> {
   private async onPoint(vehicleId: string, point: Point): Promise<void> {
     const state = this.state(vehicleId)
     if (isOlderPoint(state.lastPoint, point)) return
-    if (state.drive && shouldClose(state.drive, point.ts, null)) await this.finishDrive(vehicleId)
+    if (state.closing || (state.drive && shouldClose(state.drive, point.ts, null))) {
+      await this.finishDrive(vehicleId)
+    }
     const { drive, parkedAt, stored } = onPoint(
       state.drive,
       parkedAfterGap(state.parkedAt, state.lastPoint, point),
@@ -461,6 +467,7 @@ export class Recorder extends DurableObject<Env> {
     if (!state) {
       state = {
         drive: null,
+        closing: null,
         parkedAt: null,
         lastPoint: null,
         power: null,
@@ -481,9 +488,11 @@ export class Recorder extends DurableObject<Env> {
 
   private async finishDrive(vehicleId: string): Promise<void> {
     const state = this.state(vehicleId)
-    if (!state.drive) return
-    // The open drive stays in `state` until the write succeeds, so a failure can retry it.
-    await this.flush(vehicleId, close(state.drive, state.odometerKm))
+    // The decision to close is kept until the write succeeds, so a failure is retried as a close.
+    state.closing ??= state.drive && close(state.drive, state.odometerKm)
+    if (!state.closing) return
+    await this.writeDrive(vehicleId, state.closing)
+    state.closing = null
     state.drive = null
     // The vehicle is parked where the drive ended, so the next trip starts from there.
     state.parkedAt = state.lastPoint
@@ -495,7 +504,12 @@ export class Recorder extends DurableObject<Env> {
   }
 
   /** Writes buffered points and the drive summary in one D1 batch. */
-  private async flush(vehicleId: string, drive = this.states.get(vehicleId)?.drive): Promise<void> {
+  private async flush(vehicleId: string): Promise<void> {
+    const state = this.states.get(vehicleId)
+    await this.writeDrive(vehicleId, state?.closing ?? state?.drive)
+  }
+
+  private async writeDrive(vehicleId: string, drive: Drive | null | undefined): Promise<void> {
     if (!drive) return
     const points = this.buffer.get(vehicleId) ?? []
     const db = this.env.DB
