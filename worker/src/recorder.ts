@@ -72,6 +72,8 @@ interface VehicleState {
   /** Latest GPS point. Not persisted. */
   lastPoint: Point | null
   power: PowerState | null
+  /** Timestamp of the latest power sample, so a replayed older one cannot replace it. */
+  powerAt: number
   odometerKm: number | null
 }
 
@@ -328,8 +330,16 @@ export class Recorder extends DurableObject<Env> {
     if (CHARGING_RVMS.includes(msg.rvm)) {
       await this.onCharging(vehicleId, ts, msg.rvm, msg.payload)
     } else if (msg.rvm === RVM_POWER) {
+      // Rivian replays old samples on subscribe: one from before the drive's last move says
+      // nothing about the drive now.
+      if (ts < state.powerAt) return
+      state.powerAt = ts
       state.power = decodePowerState(msg.payload)
-      if (state.drive && shouldClose(state.drive, ts, state.power))
+      if (
+        state.drive &&
+        ts >= state.drive.lastMovingAt &&
+        shouldClose(state.drive, ts, state.power)
+      )
         await this.finishDrive(vehicleId)
     } else if (msg.rvm === RVM_ODOMETER) {
       state.odometerKm = decodeOdometerKm(msg.payload) ?? state.odometerKm
@@ -414,7 +424,14 @@ export class Recorder extends DurableObject<Env> {
   private state(vehicleId: string): VehicleState {
     let state = this.states.get(vehicleId)
     if (!state) {
-      state = { drive: null, parkedAt: null, lastPoint: null, power: null, odometerKm: null }
+      state = {
+        drive: null,
+        parkedAt: null,
+        lastPoint: null,
+        power: null,
+        powerAt: 0,
+        odometerKm: null,
+      }
       this.states.set(vehicleId, state)
     }
     return state
