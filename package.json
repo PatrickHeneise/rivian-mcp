@@ -33,11 +33,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/PatrickHeneise/rivian-mcp.git"
+    "url": "git+https://github.com/zentered-studios/rivian-mcp.git"
   },
-  "homepage": "https://github.com/PatrickHeneise/rivian-mcp#readme",
+  "homepage": "https://github.com/zentered-studios/rivian-mcp#readme",
   "bugs": {
-    "url": "https://github.com/PatrickHeneise/rivian-mcp/issues"
+    "url": "https://github.com/zentered-studios/rivian-mcp/issues"
   },
   "author": "Patrick Heneise",
   "license": "MIT",
