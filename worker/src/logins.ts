@@ -15,10 +15,10 @@ export interface LoginStore {
 export interface LoginDeps {
   store: LoginStore
   /** Logs in to a fresh session. Returns true when Rivian sent an OTP. */
-  login(session: Session, password: string): Promise<boolean>
-  validateOtp(session: Session, code: string): Promise<void>
-  /** Makes a verified session the recording session. */
-  activate(session: Session): Promise<void>
+  login(session: Session, email: string, password: string): Promise<boolean>
+  validateOtp(session: Session, email: string, code: string): Promise<void>
+  /** Makes a verified session the recording session. Throws when `email` is not the owner. */
+  activate(session: Session, email: string): Promise<void>
   newSession(): Session
   now(): number
   newId(): string
@@ -28,17 +28,21 @@ export interface LoginDeps {
 
 export type StartResult = { result: 'logged_in' } | { result: 'otp_sent'; pendingId: string }
 
-export async function startPending(deps: LoginDeps, password: string): Promise<StartResult> {
+export async function startPending(
+  deps: LoginDeps,
+  email: string,
+  password: string,
+): Promise<StartResult> {
   const session = deps.newSession()
-  const needsOtp = await deps.login(session, password)
+  const needsOtp = await deps.login(session, email, password)
   if (!needsOtp) {
-    await deps.activate(session)
+    await deps.activate(session, email)
     return { result: 'logged_in' }
   }
   const now = deps.now()
   await deps.store.delete(pendingToDrop(await deps.store.list(PENDING_PREFIX), now))
   const pendingId = deps.newId()
-  await deps.store.put(`${PENDING_PREFIX}${pendingId}`, { session, createdAt: now })
+  await deps.store.put(`${PENDING_PREFIX}${pendingId}`, { session, email, createdAt: now })
   return { result: 'otp_sent', pendingId }
 }
 
@@ -50,21 +54,30 @@ export async function finishPending(deps: LoginDeps, pendingId: string, code: st
   if (deps.inFlight.has(pendingId)) throw new Error('This code is already being checked.')
   deps.inFlight.add(pendingId)
   const key = `${PENDING_PREFIX}${pendingId}`
-  let session: Session
+  let pending: PendingLogin | undefined
   try {
-    const pending = await deps.store.get(key)
+    pending = await deps.store.get(key)
     if (!pending || !isPendingFresh(pending, deps.now())) {
       await deps.store.delete(key)
       throw new Error('This sign-in expired.')
     }
-    await deps.validateOtp(pending.session, code)
+    await deps.validateOtp(pending.session, pending.email, code)
     await deps.store.delete(key)
-    session = pending.session
   } finally {
     deps.inFlight.delete(pendingId)
   }
-  await deps.activate(session)
+  await deps.activate(pending.session, pending.email)
 }
+
+/** Rivian emails compare without case or surrounding spaces. */
+export const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/**
+ * The owner email: `RIVIAN_EMAIL` when set, else the one the first accepted sign-in claimed.
+ * Null until the first sign-in.
+ */
+export const ownerEmail = (configured: string | undefined, claimed: string | undefined) =>
+  configured?.trim() || claimed || null
 
 /** True when a session exists but vehicle discovery never succeeded. */
 export function needsVehicleDiscovery(session: Session, vehicleCount: number): boolean {

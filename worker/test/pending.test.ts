@@ -3,7 +3,11 @@ import { test } from 'node:test'
 import { emptySession } from '../../src/rivian-api.ts'
 import { isPendingFresh, PENDING_MAX, PENDING_TTL_MS, pendingToDrop } from '../src/pending.ts'
 
-const entry = (createdAt: number) => ({ session: emptySession(), createdAt })
+const entry = (createdAt: number) => ({
+  session: emptySession(),
+  email: 'me@example.com',
+  createdAt,
+})
 
 test('overlapping sign-ins stay while room remains', () => {
   const entries = new Map([

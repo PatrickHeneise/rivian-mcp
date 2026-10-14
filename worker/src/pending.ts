@@ -11,6 +11,8 @@ export const PENDING_MAX = 5
 
 export interface PendingLogin {
   session: Session
+  /** The email typed at sign-in. The code check and the owner claim use it. */
+  email: string
   createdAt: number
 }
 

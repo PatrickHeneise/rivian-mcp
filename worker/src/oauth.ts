@@ -8,11 +8,11 @@ import {
   type OAuthHelpers,
 } from '@cloudflare/workers-oauth-provider'
 import { esc, merge } from './html.ts'
-import type { StartResult } from './logins.ts'
+import { type StartResult, sameEmail } from './logins.ts'
 
 /** The one scope this server grants. */
 export const SCOPE = 'mcp'
-/** Every grant belongs to the one Rivian account in `RIVIAN_EMAIL`. */
+/** Every grant belongs to the one owner account (`ownerEmail` in logins.ts). */
 const USER_ID = 'owner'
 
 const recorder = (env: Env) => env.RECORDER.get(env.RECORDER.idFromName('default'))
@@ -118,8 +118,10 @@ async function submitPassword(request: Request, env: Env, oauth: OAuthHelpers): 
   // limit applies here: no Rivian call happens yet, so a wrong email must not use up the global one.
   if (await ipOverLimit(request, env)) return tooManyAttempts()
   const email = String(form.get('email') ?? '')
-  // The Recorder holds one session, so only the configured account may sign in.
-  if (email.trim().toLowerCase() !== env.RIVIAN_EMAIL.trim().toLowerCase()) {
+  // The Recorder holds one session, so only the owner may sign in. Before the first sign-in
+  // there is no owner yet, and the first account Rivian accepts claims this Worker.
+  const owner = await recorder(env).ownerEmail()
+  if (owner && !sameEmail(owner, email)) {
     return signInPage(
       oauth,
       approved.request,
@@ -130,7 +132,7 @@ async function submitPassword(request: Request, env: Env, oauth: OAuthHelpers): 
   if (await overLimit(env, 'global')) return tooManyAttempts()
   let login: StartResult
   try {
-    login = await recorder(env).startPendingLogin(String(form.get('password') ?? ''))
+    login = await recorder(env).startPendingLogin(email, String(form.get('password') ?? ''))
   } catch (error) {
     return signInPage(oauth, approved.request, rivianError(error), approved.headers)
   }

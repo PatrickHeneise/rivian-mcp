@@ -29,8 +29,8 @@ Start with the free Cloudflare plan. Its limits for the part that stays connecte
 
 2. Sign in to Cloudflare and connect your GitHub account when asked.
 3. Keep the suggested names, or pick your own.
-4. Enter your Rivian email in `RIVIAN_EMAIL`. Only this email can sign in to your copy.
-5. Select **Create and deploy**.
+4. Select **Create and deploy**.
+5. Turn off preview builds: open **Workers & Pages**, then **rivian-mcp**, then **Settings**, then **Build**. Under **Branch control**, clear **Enable Preview Builds**. Your copy has one recorder, so a preview of another branch has nothing to do.
 
 Cloudflare copies the project to your GitHub, creates the storage it needs, and starts it. When it is done, it shows your address:
 
@@ -58,7 +58,7 @@ Works on claude.ai and in the Claude desktop and mobile apps. Custom connectors 
 2. Select **Add custom connector**.
 3. Name it `Rivian` and paste your connector address. Leave the advanced settings empty.
 4. Select **Add**, then **Connect**.
-5. Your sign-in page opens. Enter your Rivian email and password.
+5. Your sign-in page opens. Enter your Rivian email and password. The first account that signs in becomes the owner of your copy. Connect right after you deploy.
 6. Rivian sends a one-time code. Enter it on the next page.
 7. You are back in Claude, and recording has started.
 
@@ -96,8 +96,9 @@ Your copy lives in your GitHub account. To get a newer version, open your copy o
 
 - Everything stays in your Cloudflare account: drives in a D1 database, sign-in data in a KV store.
 - Your Rivian password goes straight to Rivian and is not stored. The Worker keeps the session Rivian returns, the same way the Rivian app stays signed in.
-- Only the email you entered in Step 1 can sign in. Sign-in attempts are limited to 10 per minute.
-- Anyone who finds your address can try passwords for that email, within that limit.
+- The first Rivian account that signs in owns your copy. After that, only its email can sign in. Sign-in attempts are limited to 10 per minute.
+- Until you sign in, anyone who finds your address can claim your copy with their own Rivian account. Connect right after you deploy. To pin the owner up front, add a `RIVIAN_EMAIL` secret: **Settings**, then **Variables and Secrets**.
+- Anyone who finds your address can try passwords for the owner's email, within that limit.
 
 ## Remove it
 
@@ -112,7 +113,6 @@ git clone https://github.com/PatrickHeneise/rivian-mcp.git
 cd rivian-mcp
 npm install
 npx wrangler login
-npx wrangler secret put RIVIAN_EMAIL
 npm run deploy
 ```
 

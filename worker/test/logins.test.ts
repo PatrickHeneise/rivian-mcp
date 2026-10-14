@@ -5,8 +5,10 @@ import {
   finishPending,
   type LoginDeps,
   needsVehicleDiscovery,
+  ownerEmail,
   type RecoveryDeps,
   recoverConnection,
+  sameEmail,
   startPending,
 } from '../src/logins.ts'
 import { PENDING_PREFIX, type PendingLogin } from '../src/pending.ts'
@@ -14,7 +16,11 @@ import { PENDING_PREFIX, type PendingLogin } from '../src/pending.ts'
 /** Fake Rivian: each login gets a distinct otpToken; a code is right only for its own token. */
 function setup() {
   const pending = new Map<string, PendingLogin>()
-  const active: { session: Session | null; writes: Session[] } = { session: null, writes: [] }
+  const active: { session: Session | null; email: string | null; writes: Session[] } = {
+    session: null,
+    email: null,
+    writes: [],
+  }
   let n = 0
   const deps: LoginDeps = {
     store: {
@@ -26,7 +32,7 @@ function setup() {
       list: async (prefix) =>
         new Map([...pending].filter(([k]) => k.startsWith(prefix))) as Map<string, PendingLogin>,
     },
-    login: async (session, password) => {
+    login: async (session, _email, password) => {
       if (password === 'direct') {
         session.userSessionToken = 'direct-token'
         return false
@@ -34,13 +40,14 @@ function setup() {
       session.otpToken = `otp-${password}`
       return true
     },
-    validateOtp: async (session, code) => {
+    validateOtp: async (session, _email, code) => {
       if (code !== `code-for-${session.otpToken}`) throw new Error('bad code')
       session.userSessionToken = `user-${session.otpToken}`
       session.otpToken = ''
     },
-    activate: async (session) => {
+    activate: async (session, email) => {
       active.session = session
+      active.email = email
       active.writes.push(session)
     },
     newSession: emptySession,
@@ -53,8 +60,8 @@ function setup() {
 
 test('starting overlapping sign-ins never writes the active session', async () => {
   const { deps, pending, active } = setup()
-  const a = await startPending(deps, 'a')
-  const b = await startPending(deps, 'b')
+  const a = await startPending(deps, 'me@example.com', 'a')
+  const b = await startPending(deps, 'me@example.com', 'b')
   assert.deepEqual(
     [a, b],
     [
@@ -68,7 +75,7 @@ test('starting overlapping sign-ins never writes the active session', async () =
 
 test('a wrong code keeps the pending session and writes nothing', async () => {
   const { deps, pending, active } = setup()
-  await startPending(deps, 'a')
+  await startPending(deps, 'me@example.com', 'a')
   await assert.rejects(finishPending(deps, 'id1', 'nope'), /bad code/)
   assert.equal(active.writes.length, 0)
   assert.ok(pending.has(`${PENDING_PREFIX}id1`))
@@ -76,8 +83,8 @@ test('a wrong code keeps the pending session and writes nothing', async () => {
 
 test('a right code activates only its own session and keeps the other pending login', async () => {
   const { deps, pending, active } = setup()
-  await startPending(deps, 'a')
-  await startPending(deps, 'b')
+  await startPending(deps, 'me@example.com', 'a')
+  await startPending(deps, 'me@example.com', 'b')
   await finishPending(deps, 'id1', 'code-for-otp-a')
   assert.equal(active.writes.length, 1)
   assert.equal(active.session?.userSessionToken, 'user-otp-a')
@@ -89,27 +96,27 @@ test('a right code activates only its own session and keeps the other pending lo
 
 test('a used or expired pending id is rejected', async () => {
   const { deps } = setup()
-  await startPending(deps, 'a')
+  await startPending(deps, 'me@example.com', 'a')
   await finishPending(deps, 'id1', 'code-for-otp-a')
   await assert.rejects(finishPending(deps, 'id1', 'code-for-otp-a'), /expired/)
 })
 
 test('a password login without OTP activates directly', async () => {
   const { deps, active } = setup()
-  assert.deepEqual(await startPending(deps, 'direct'), { result: 'logged_in' })
+  assert.deepEqual(await startPending(deps, 'me@example.com', 'direct'), { result: 'logged_in' })
   assert.equal(active.session?.userSessionToken, 'direct-token')
 })
 
 test('a second code check for the same id is refused while one runs', async () => {
   const { deps, active } = setup()
-  await startPending(deps, 'a')
+  await startPending(deps, 'me@example.com', 'a')
   let release = () => {}
   const original = deps.validateOtp
-  deps.validateOtp = async (session, code) => {
+  deps.validateOtp = async (session, email, code) => {
     await new Promise<void>((resolve) => {
       release = resolve
     })
-    return original(session, code)
+    return original(session, email, code)
   }
   const first = finishPending(deps, 'id1', 'code-for-otp-a')
   await new Promise((resolve) => setImmediate(resolve))
@@ -117,6 +124,42 @@ test('a second code check for the same id is refused while one runs', async () =
   release()
   await first
   assert.equal(active.writes.length, 1)
+})
+
+test('the email typed at sign-in reaches the code check and activation', async () => {
+  const { deps, active } = setup()
+  const checked: string[] = []
+  const original = deps.validateOtp
+  deps.validateOtp = async (session, email, code) => {
+    checked.push(email)
+    return original(session, email, code)
+  }
+  await startPending(deps, 'me@example.com', 'a')
+  await finishPending(deps, 'id1', 'code-for-otp-a')
+  assert.deepEqual(checked, ['me@example.com'])
+  assert.equal(active.email, 'me@example.com')
+})
+
+test('a refused activation leaves no pending entry to retry', async () => {
+  const { deps, pending } = setup()
+  deps.activate = async () => {
+    throw new Error('This server records a different Rivian account.')
+  }
+  await startPending(deps, 'me@example.com', 'a')
+  await assert.rejects(finishPending(deps, 'id1', 'code-for-otp-a'), /different Rivian account/)
+  assert.equal(pending.size, 0)
+})
+
+test('the owner is RIVIAN_EMAIL when set, else the claimed email, else nobody', () => {
+  assert.equal(ownerEmail(' Set@Example.com ', 'claimed@example.com'), 'Set@Example.com')
+  assert.equal(ownerEmail(undefined, 'claimed@example.com'), 'claimed@example.com')
+  assert.equal(ownerEmail('', 'claimed@example.com'), 'claimed@example.com')
+  assert.equal(ownerEmail(undefined, undefined), null)
+})
+
+test('emails match ignoring case and surrounding spaces', () => {
+  assert.equal(sameEmail(' Me@Example.com ', 'me@example.com'), true)
+  assert.equal(sameEmail('me@example.com', 'you@example.com'), false)
 })
 
 test('vehicle discovery retries only for a signed-in session with no vehicles', () => {
@@ -128,12 +171,12 @@ test('vehicle discovery retries only for a signed-in session with no vehicles', 
 
 test('two code checks started together run validateOtp once', async () => {
   const { deps, active } = setup()
-  await startPending(deps, 'a')
+  await startPending(deps, 'me@example.com', 'a')
   let validations = 0
   const original = deps.validateOtp
-  deps.validateOtp = async (session, code) => {
+  deps.validateOtp = async (session, email, code) => {
     validations++
-    return original(session, code)
+    return original(session, email, code)
   }
   const results = await Promise.allSettled([
     finishPending(deps, 'id1', 'code-for-otp-a'),
