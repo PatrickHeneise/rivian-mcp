@@ -23,7 +23,7 @@ Source and tests are TypeScript, run directly by Node's type stripping. Node doe
 - **`src/mcp-server.ts`** — MCP server entry point (`@modelcontextprotocol/server` v2, `serveStdio`). Registers tools and formats responses for human readability. Every tool except `rivian_login` and `rivian_submit_otp` is `readOnlyHint: true`. A TTY on stdin runs the CLI instead.
 - **`src/cli.ts`** — CLI entry point. Provides `ota` and `stats` commands for direct terminal use.
 - **`src/rivian-api.ts`** — All Rivian API interaction. Plain ESM functions; each takes the `Session` as its first argument. Wraps Rivian's undocumented GraphQL API (schema referenced from `bretterer/rivian-python-client`).
-- **`src/ui.ts`** — Terminal UI primitives: chalk colors (Rivian amber brand), progress bars, vehicle/tire diagrams, tables, section headers.
+- **`src/ui.ts`** — Terminal UI primitives: chalk colors (amber on forest green, not Rivian's brand colors), progress bars, vehicle/tire diagrams, tables, section headers.
 - **`src/session.ts`** — Session persistence to `~/.rivian-mcp/session.json`. Handles load, save, and expiry.
 - **`src/format.ts`** — Formatting helpers for human-readable MCP/CLI output.
 - **`.claude/skills/SKILL.md`** — Detailed API reference: endpoints, GraphQL schema, function signatures, all confirmed vehicle state properties, OTA status values. Consult this when adding queries or working with vehicle data.

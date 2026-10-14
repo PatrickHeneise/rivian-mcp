@@ -1,15 +1,16 @@
 import chalk from 'chalk'
 
-// ── Rivian brand colors ──────────────────────────────────────────────
+// ── Colors ───────────────────────────────────────────────────────────
+// Amber on forest green, shared with the cloud UI. Not Rivian's brand colors.
 
 export const c = {
-  brand: chalk.hex('#FFAA00'), // Rivian amber
+  brand: chalk.hex('#f0b43c'),
   dim: chalk.dim,
   bold: chalk.bold,
   white: chalk.white,
   red: chalk.red,
   yellow: chalk.yellow,
-  green: chalk.green,
+  green: chalk.hex('#2f7a4f'),
   cyan: chalk.cyan,
   gray: chalk.gray,
   blue: chalk.blue,
@@ -18,7 +19,7 @@ export const c = {
 // ── Logo ─────────────────────────────────────────────────────────────
 
 export function logo() {
-  return c.brand('  ━0━━━━0━  ') + c.bold('RIVIAN')
+  return c.brand('  ━0━━━━0━  ') + c.bold('rivian-mcp') + c.dim(' · unofficial')
 }
 
 // ── Section headers ──────────────────────────────────────────────────
