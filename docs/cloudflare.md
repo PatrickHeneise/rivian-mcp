@@ -26,7 +26,7 @@ Start with the free Cloudflare plan. Its limits for the part that stays connecte
 A fork is your own copy of the project in your GitHub account. Cloudflare deploys from it.
 
 1. Sign in to [GitHub](https://github.com/login).
-2. Open <https://github.com/PatrickHeneise/rivian-mcp>.
+2. Open <https://github.com/zentered-studios/rivian-mcp>.
 3. Select **Fork**, then **Create fork**.
 
 You now have `github.com/<your-github-name>/rivian-mcp`.
@@ -120,7 +120,7 @@ In the Cloudflare dashboard, open **Workers & Pages**, select **rivian-mcp**, th
 If you would rather not use GitHub or the browser, you need [Node.js 24](https://nodejs.org) or newer.
 
 ```sh
-git clone https://github.com/PatrickHeneise/rivian-mcp.git
+git clone https://github.com/zentered-studios/rivian-mcp.git
 cd rivian-mcp
 npm install
 npx wrangler login

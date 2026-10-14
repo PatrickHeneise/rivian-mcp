@@ -16,7 +16,7 @@ To skip GitHub, [deploy from a terminal](docs/cloudflare.md#set-it-up-from-a-ter
 
 ### 1. Fork the repo
 
-A fork is your own copy of the project. Open [PatrickHeneise/rivian-mcp](https://github.com/PatrickHeneise/rivian-mcp), select **Fork**, then **Create fork**.
+A fork is your own copy of the project. Open [zentered-studios/rivian-mcp](https://github.com/zentered-studios/rivian-mcp), select **Fork**, then **Create fork**.
 
 ### 2. Deploy your fork
 
@@ -156,7 +156,7 @@ If you are thinking about getting a Rivian, my referral code gets you benefits o
 The Claude Code plugin teaches Claude this codebase and the Rivian API: confirmed vehicle state fields, the auth flow and the formatters.
 
 ```bash
-claude /plugin marketplace add PatrickHeneise/rivian-mcp
+claude /plugin marketplace add zentered-studios/rivian-mcp
 claude /plugin install rivian-mcp@rivian-ai
 ```
 
