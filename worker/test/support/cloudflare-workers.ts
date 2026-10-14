@@ -7,3 +7,5 @@ export class DurableObject<E> {
     this.env = env
   }
 }
+
+export class WorkerEntrypoint {}

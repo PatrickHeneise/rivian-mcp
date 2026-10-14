@@ -17,14 +17,14 @@ const USER_ID = 'owner'
 
 const recorder = (env: Env) => env.RECORDER.get(env.RECORDER.idFromName('default'))
 
+const overLimit = async (env: Env, key: string) => !(await env.LOGIN_LIMITER.limit({ key })).success
+const ipOverLimit = (request: Request, env: Env) =>
+  overLimit(env, `ip:${request.headers.get('CF-Connecting-IP') ?? 'unknown'}`)
+
 /** Both sign-in steps call Rivian, so both count against one global and one per-client limit. */
 async function throttled(request: Request, env: Env): Promise<boolean> {
-  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
-  const [global, client] = await Promise.all([
-    env.LOGIN_LIMITER.limit({ key: 'global' }),
-    env.LOGIN_LIMITER.limit({ key: `ip:${ip}` }),
-  ])
-  return !global.success || !client.success
+  const [global, client] = await Promise.all([overLimit(env, 'global'), ipOverLimit(request, env)])
+  return global || client
 }
 
 const tooManyAttempts = () =>
@@ -114,6 +114,9 @@ async function submitPassword(request: Request, env: Env, oauth: OAuthHelpers): 
   }
   // Checks the browser binding first, so no other site can make this page call Rivian.
   const approved = await oauth.approveConsent(request, handle, { scope: [SCOPE] })
+  // Before the email check, so guessing the owner's email costs attempts. Only the per-client
+  // limit applies here: no Rivian call happens yet, so a wrong email must not use up the global one.
+  if (await ipOverLimit(request, env)) return tooManyAttempts()
   const email = String(form.get('email') ?? '')
   // The Recorder holds one session, so only the configured account may sign in.
   if (email.trim().toLowerCase() !== env.RIVIAN_EMAIL.trim().toLowerCase()) {
@@ -124,7 +127,7 @@ async function submitPassword(request: Request, env: Env, oauth: OAuthHelpers): 
       approved.headers,
     )
   }
-  if (await throttled(request, env)) return tooManyAttempts()
+  if (await overLimit(env, 'global')) return tooManyAttempts()
   let login: StartResult
   try {
     login = await recorder(env).startPendingLogin(String(form.get('password') ?? ''))

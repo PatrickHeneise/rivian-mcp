@@ -1,19 +1,12 @@
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
-import { registerHooks } from 'node:module'
 import { join } from 'node:path'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
 import { afterEach, test } from 'node:test'
 import { emptySession } from '../../src/rivian-api.ts'
+import './support/cloudflare-stub.ts'
 
-// The Recorder extends a class from `cloudflare:workers`, which only exists in the Workers runtime.
-registerHooks({
-  resolve(specifier, context, next) {
-    if (specifier !== 'cloudflare:workers') return next(specifier, context)
-    const url = new URL('./support/cloudflare-workers.ts', import.meta.url).href
-    return { url, shortCircuit: true }
-  },
-})
+// The Recorder extends a class from `cloudflare:workers`, which the stub provides.
 const { Recorder } = await import('../src/recorder.ts')
 
 /** The members the tests reach into. They are private in the class. */
