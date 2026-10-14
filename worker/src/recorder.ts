@@ -143,6 +143,7 @@ export class Recorder extends DurableObject<Env> {
       },
       validateOtp,
       activate: (session, email) => this.activate(session, email),
+      configuredEmail: this.env.RIVIAN_EMAIL,
       newSession: emptySession,
       now: Date.now,
       newId: () => crypto.randomUUID(),
@@ -152,15 +153,16 @@ export class Recorder extends DurableObject<Env> {
 
   /**
    * Stores a verified session and starts recording. Startup errors go to `lastError`.
-   * With no owner yet, this sign-in claims the Worker. Only storage calls sit between the
-   * read and the claim, so the input gate keeps two sign-ins from both claiming it.
+   * With no owner yet, this sign-in claims the Worker. The owner is stored on every sign-in, so
+   * removing `RIVIAN_EMAIL` later keeps the account. Only storage calls sit between the read and
+   * the write, so the input gate keeps two sign-ins from both claiming it.
    */
   private async activate(session: Session, email: string): Promise<void> {
     const owner = await this.ownerEmail()
     if (owner && !sameEmail(owner, email)) {
       throw new Error('This server records a different Rivian account.')
     }
-    if (!owner) await this.ctx.storage.put('owner', email.trim().toLowerCase())
+    await this.ctx.storage.put('owner', email.trim().toLowerCase())
     await this.ctx.storage.put('session', session)
     try {
       await this.afterLogin(session)
