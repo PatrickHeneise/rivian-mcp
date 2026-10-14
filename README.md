@@ -1,35 +1,105 @@
 # Rivian MCP
 
-Read-only [MCP server](https://modelcontextprotocol.io) and CLI for Rivian's undocumented GraphQL API. Check your vehicle's battery, range, OTA updates, charging status, and more — right from Claude or your terminal.
+Ask Claude or ChatGPT about your Rivian and every drive you take. It runs in your own Cloudflare account, so your data stays with you.
 
-**Strictly read-only** — no vehicle commands, no settings changes.
+It only reads from Rivian. It sends no commands to your vehicle and changes no settings. This project is unofficial and not affiliated with or endorsed by Rivian.
 
-## Install as Claude Code Plugin
+![Claude showing a recorded drive with its route on a map, distance, speed and elevation](docs/mcp-app.png)
 
-Install the skill so Claude automatically knows how to work with this codebase and the Rivian API — confirmed vehicle state properties, auth flow, formatter patterns, and what fields don't exist.
+## Self-host on Cloudflare
 
-**From the terminal:**
+You need:
+
+- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
+- Your Rivian email and password, and the phone or email that gets Rivian's one-time code.
+
+The Deploy button also asks you to connect a GitHub account. Cloudflare keeps your copy of the project there. To skip GitHub, [deploy from a terminal](docs/cloudflare.md#set-it-up-from-a-terminal-instead) with Node.js 24.
+
+### 1. Deploy
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/PatrickHeneise/rivian-mcp)
+
+1. Select the button and sign in to Cloudflare.
+2. Enter your Rivian email in `RIVIAN_EMAIL`. Only this email can sign in to your copy.
+3. Select **Create and deploy**.
+
+Cloudflare creates the storage and starts the server. It shows your address:
+
+```text
+https://rivian-mcp.<your-name>.workers.dev
+```
+
+Your connector address is that address plus `/mcp`:
+
+```text
+https://rivian-mcp.<your-name>.workers.dev/mcp
+```
+
+### 2. Connect Claude
+
+Works on claude.ai and in the Claude desktop and mobile apps.
+
+1. Open **Settings**, then **Connectors**, then **Add custom connector**.
+2. Name it `Rivian` and paste your connector address.
+3. Select **Add**, then **Connect**.
+4. Sign in with your Rivian email and password, then enter the one-time code Rivian sends you.
+
+Recording starts as soon as you are signed in. In a new chat, ask "Is the recorder running?"
+
+ChatGPT works through its developer mode connectors. I have not tested it. See [Connect ChatGPT](docs/cloudflare.md#connect-chatgpt).
+
+### What you can ask
+
+- "Show my last drive."
+- "List my drives this week."
+- "Show my stats for the last 30 days."
+- "Show my charging sessions."
+- "What's my battery level?"
+- "Is there a software update available?"
+- "Are all the doors locked?"
+
+### Tools
+
+| Tool                           | What it does                                                        |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `show_drive`                   | One drive with its route map and speed, energy and elevation charts |
+| `show_stats`                   | Totals and efficiency for a period, with every route on one map     |
+| `show_charging`                | Charging sessions with energy added, power and battery level curves |
+| `list_drives`                  | Recorded drives, newest first                                       |
+| `get_drive`                    | One drive with its route as GeoJSON                                 |
+| `recorder_status`              | Whether the recorder is signed in and connected                     |
+| `rivian_get_user_info`         | Your account, vehicles and software versions                        |
+| `rivian_get_vehicle_state`     | Live battery, doors, tires, location, climate and OTA status        |
+| `rivian_get_ota_status`        | Current and available software versions                             |
+| `rivian_get_charging_session`  | Active charging session                                             |
+| `rivian_get_charging_history`  | Past charging sessions with energy, cost and location               |
+| `rivian_get_charging_schedule` | Your charging schedule                                              |
+| `rivian_get_drivers_and_keys`  | Drivers and their phone keys and key fobs                           |
+
+Cost, updates, where your data lives and how to remove it are in [docs/cloudflare.md](docs/cloudflare.md).
+
+## Run it locally
+
+The npm package runs on your computer as a CLI or a local MCP server. It needs Node.js 24 or newer. It answers questions about your Rivian as it is now. It does not record drives, because it only runs while you use it.
+
+### CLI
 
 ```bash
-claude /plugin marketplace add PatrickHeneise/rivian-mcp
-claude /plugin install rivian-mcp@rivian-ai
-claude /plugin install rivian-mcp@rivian-ai
+npx rivian-mcp ota    # software update status
+npx rivian-mcp stats  # full vehicle state
 ```
 
-**Inside Claude Code**, type:
+Or install it globally:
 
-```
-/plugin marketplace add PatrickHeneise/rivian-mcp
-```
-
-Then:
-
-```
-/plugin install rivian-mcp@rivian-ai
-/plugin install rivian-mcp@rivian-ai
+```bash
+npm install -g rivian-mcp
+rivian ota
+rivian stats
 ```
 
-## Setup
+The CLI reads `RIVIAN_EMAIL` and `RIVIAN_PASSWORD` from the environment, or asks for them.
+
+### Local MCP server
 
 ```bash
 claude mcp add rivian \
@@ -60,81 +130,31 @@ Add to `~/.claude.json` or your project's `.mcp.json`:
 
 </details>
 
-### First-time login
+Rivian asks for a one-time code on every new sign-in:
 
-Rivian requires 2FA on every new login:
+1. Ask Claude, "Log in to Rivian."
+2. Rivian sends a code to your phone or email.
+3. Tell Claude, "The code is 123456."
 
-1. Ask Claude: **"Log in to Rivian"**
-2. Rivian sends a verification code to your phone/email
-3. Tell Claude the code: **"The code is 123456"**
-
-Your session is saved to `~/.rivian-mcp/session.json` and reused automatically until it expires (7 days).
-
-## What you can ask
-
-- "What's my battery level?"
-- "Is there a software update available?"
-- "Are all the doors locked?"
-- "Show me the full vehicle status"
-- "Who has keys to my R1S?"
-- "Am I currently charging?"
-- "Show my charging history"
-- "What's my charging schedule?"
-
-## Tools
-
-| Tool                           | What it does                                                |
-| ------------------------------ | ----------------------------------------------------------- |
-| `rivian_login`                 | Start sign-in (triggers verification code)                  |
-| `rivian_submit_otp`            | Complete sign-in with the verification code                 |
-| `rivian_get_user_info`         | Your account, vehicles, and software versions               |
-| `rivian_get_vehicle_state`     | Live status — battery, doors, tires, location, climate, OTA |
-| `rivian_get_ota_status`        | Current and available software versions                     |
-| `rivian_get_charging_session`  | Active charging session details                             |
-| `rivian_get_charging_history`  | Past charging sessions — energy, cost, location             |
-| `rivian_get_charging_schedule` | Your configured charging schedule                           |
-| `rivian_get_drivers_and_keys`  | Drivers and their phone keys / key fobs                     |
-
-## CLI
-
-The package also installs a `rivian` CLI for quick terminal access without Claude.
-
-```bash
-npx rivian-mcp ota    # OTA software update status
-npx rivian-mcp stats  # Full vehicle state
-```
-
-Or install globally:
-
-```bash
-npm install -g rivian-mcp
-rivian ota
-rivian stats
-```
-
-Authentication works the same way — credentials from `RIVIAN_EMAIL`/`RIVIAN_PASSWORD` env vars or interactive prompts. Session is shared with the MCP server (`~/.rivian-mcp/session.json`).
-
-## Record your drives (optional)
-
-The local server only sees your Rivian while you use it. To keep a record of every drive and charge, run a copy in your own Cloudflare account. Claude or ChatGPT then connects to it as a custom connector, and can show your routes on a map, your stats and your charging sessions.
-
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/PatrickHeneise/rivian-mcp)
-
-The guide walks through it without code: [docs/cloudflare.md](docs/cloudflare.md). Nothing is hosted for you. Your data stays in your account.
-
-## Requirements
-
-- Node.js 24+
-- A Rivian account with a vehicle
+The local server adds `rivian_login` and `rivian_submit_otp` for this step. The CLI and the local server share the session in `~/.rivian-mcp/session.json`. It is reused for up to 90 days.
 
 ## Support
 
-If you're thinking about getting a Rivian and don't have a referral yet, here's mine — you'll get benefits on your purchase and it helps support this project:
+If you are thinking about getting a Rivian, my referral code gets you benefits on your purchase and supports this project:
 
 [Get a Rivian R1 with referral benefits](https://rivian.com/configurations/list?reprCode=PATRICK4568756)
 
+## Development
+
+The Claude Code plugin teaches Claude this codebase and the Rivian API: confirmed vehicle state fields, the auth flow and the formatters.
+
+```bash
+claude /plugin marketplace add PatrickHeneise/rivian-mcp
+claude /plugin install rivian-mcp@rivian-ai
+```
+
 ## References
 
-- [Rivian API Docs](https://rivian-api.kaedenb.org/app/) — community-maintained
-- [rivian-python-client](https://github.com/bretterer/rivian-python-client) — Python client this is based on
-- [home-assistant-rivian](https://github.com/bretterer/home-assistant-rivian) — Home Assistant integration
+- [Rivian API Docs](https://rivian-api.kaedenb.org/app/), community-maintained
+- [rivian-python-client](https://github.com/bretterer/rivian-python-client), the Python client this is based on
+- [home-assistant-rivian](https://github.com/bretterer/home-assistant-rivian), the Home Assistant integration
