@@ -4,6 +4,8 @@ Ask Claude or ChatGPT about your Rivian and every drive you take. It runs in you
 
 It only reads from Rivian. It sends no commands to your vehicle and changes no settings. This project is unofficial and not affiliated with or endorsed by Rivian.
 
+![Claude showing a recorded drive with its route on a map, distance, speed and elevation](docs/images/claude-show-drive.png)
+
 ## Self-host on Cloudflare
 
 You need:
@@ -20,10 +22,10 @@ To skip GitHub, [deploy from a terminal](docs/cloudflare.md#set-it-up-from-a-ter
 
 1. Select the button and sign in to Cloudflare.
 2. Connect your GitHub account when asked.
-3. Select **Create and deploy**.
+3. On **Create and deploy**, keep the suggested names and select **Deploy**.
 4. In the Worker's **Settings**, then **Build**, clear **Enable Preview Builds**.
 
-The steps in detail, with account sign-up, are in [docs/cloudflare.md](docs/cloudflare.md#step-1-deploy).
+The steps in detail, with screenshots and account sign-up, are in [docs/cloudflare.md](docs/cloudflare.md#step-1-deploy).
 
 The first Rivian account that signs in owns your copy. Connect Claude right after you deploy.
 
@@ -50,7 +52,7 @@ Works on claude.ai and in the Claude desktop and mobile apps.
 
 Recording starts as soon as you are signed in. In a new chat, ask "Is the recorder running?"
 
-ChatGPT works through its developer mode connectors. I have not tested it. See [Connect ChatGPT](docs/cloudflare.md#connect-chatgpt).
+ChatGPT and Codex work too: [Connect ChatGPT](docs/cloudflare.md#connect-chatgpt), [Connect Codex](docs/cloudflare.md#connect-codex).
 
 ### What you can ask
 
