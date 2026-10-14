@@ -114,6 +114,14 @@ rivian stats
 
 Authentication works the same way — credentials from `RIVIAN_EMAIL`/`RIVIAN_PASSWORD` env vars or interactive prompts. Session is shared with the MCP server (`~/.rivian-mcp/session.json`).
 
+## Record your drives (optional)
+
+The local server only sees your Rivian while you use it. To keep a record of every drive and charge, run a copy in your own Cloudflare account. Claude or ChatGPT then connects to it as a custom connector, and can show your routes on a map, your stats and your charging sessions.
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/PatrickHeneise/rivian-mcp)
+
+The guide walks through it without code: [docs/cloudflare.md](docs/cloudflare.md). Nothing is hosted for you. Your data stays in your account.
+
 ## Requirements
 
 - Node.js 24+

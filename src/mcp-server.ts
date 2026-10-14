@@ -3,13 +3,9 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { z } from 'zod'
-import * as format from './format.ts'
 import * as rivian from './rivian-api.ts'
 import { loadSession, saveSession } from './session.ts'
-
-function text(str: string) {
-  return { content: [{ type: 'text' as const, text: str }] }
-}
+import { registerQueryTools, text } from './tools.ts'
 
 const session = rivian.emptySession()
 
@@ -32,18 +28,6 @@ async function resolveVehicleId() {
   cachedVehicleId = user.vehicles[0].id
   return cachedVehicleId
 }
-
-// Runs a read-only tool and turns any error into its text response
-async function query(run: () => Promise<string>) {
-  try {
-    requireAuth()
-    return text(await run())
-  } catch (err) {
-    return text((err as Error).message)
-  }
-}
-
-const READ_ONLY = { readOnlyHint: true, openWorldHint: true }
 
 // ── MCP Server ────────────────────────────────────────────────────────
 
@@ -119,117 +103,13 @@ function createServer() {
     },
   )
 
-  // ── Read-only query tools ───────────────────────────────────────────
-
-  server.registerTool(
-    'rivian_get_user_info',
-    {
-      description:
-        'Look up your Rivian account — your vehicles, software versions, and account details.',
-      annotations: READ_ONLY,
+  registerQueryTools(server, {
+    session: async () => {
+      requireAuth()
+      return session
     },
-    () => query(async () => format.formatUserInfo(await rivian.getUserInfo(session))),
-  )
-
-  server.registerTool(
-    'rivian_get_vehicle_state',
-    {
-      description:
-        "Check your vehicle's current status — battery, range, doors, windows, tires, location, climate, seat heat/vent, steering wheel heat, software versions, security, trailer status, and more.",
-      inputSchema: z.object({
-        properties: z
-          .array(z.string())
-          .optional()
-          .describe('Specific properties to check. Leave empty for a full status report.'),
-      }),
-      annotations: READ_ONLY,
-    },
-    ({ properties }) =>
-      query(async () => {
-        const vehicleId = await resolveVehicleId()
-        const props = properties?.length ? new Set(properties) : undefined
-        return format.formatVehicleState(await rivian.getVehicleState(session, vehicleId, props))
-      }),
-  )
-
-  server.registerTool(
-    'rivian_get_ota_status',
-    {
-      description:
-        "Check for software updates — what version you're running and whether a new one is available.",
-      annotations: READ_ONLY,
-    },
-    () =>
-      query(async () => {
-        const vehicleId = await resolveVehicleId()
-        return format.formatOTAStatus(await rivian.getOTAUpdateDetails(session, vehicleId))
-      }),
-  )
-
-  server.registerTool(
-    'rivian_get_charging_session',
-    {
-      description:
-        'Check on an active charging session — power, battery level, time remaining, and cost.',
-      annotations: READ_ONLY,
-    },
-    () =>
-      query(async () => {
-        const vehicleId = await resolveVehicleId()
-        const live = await rivian.getLiveChargingSession(session, vehicleId)
-        // An empty live session does not mean the vehicle is idle; check vehicle state
-        const state = live ? null : await rivian.getChargingState(session, vehicleId)
-        return format.formatChargingSession(live, state)
-      }),
-  )
-
-  server.registerTool(
-    'rivian_get_charging_history',
-    {
-      description:
-        'View past charging sessions, newest first — energy, cost, duration, and location for each charge.',
-      inputSchema: z.object({
-        limit: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe('Number of newest sessions to show. Defaults to 25.'),
-      }),
-      annotations: READ_ONLY,
-    },
-    ({ limit }) =>
-      query(async () =>
-        format.formatChargingHistory(await rivian.getAllChargingHistory(session), limit ?? 25),
-      ),
-  )
-
-  server.registerTool(
-    'rivian_get_charging_schedule',
-    {
-      description:
-        'See your charging schedule — what times and days your vehicle is set to charge.',
-      annotations: READ_ONLY,
-    },
-    () =>
-      query(async () => {
-        const vehicleId = await resolveVehicleId()
-        return format.formatChargingSchedule(await rivian.getChargingSchedule(session, vehicleId))
-      }),
-  )
-
-  server.registerTool(
-    'rivian_get_drivers_and_keys',
-    {
-      description: 'See who has access to your vehicle — drivers, phone keys, and key fobs.',
-      annotations: READ_ONLY,
-    },
-    () =>
-      query(async () => {
-        const vehicleId = await resolveVehicleId()
-        return format.formatDriversAndKeys(await rivian.getDriversAndKeys(session, vehicleId))
-      }),
-  )
+    vehicleId: resolveVehicleId,
+  })
 
   return server
 }

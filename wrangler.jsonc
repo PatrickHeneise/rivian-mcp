@@ -1,0 +1,22 @@
+// Cloudflare config for the optional Worker in worker/. See docs/cloudflare.md.
+// No account or resource ids: `wrangler deploy` and the Deploy to Cloudflare button create
+// the D1 database and KV namespace in your own account.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rivian-mcp",
+  "main": "worker/src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "build": { "command": "npm run worker:build", "watch_dir": "worker/ui" },
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [{ "name": "RECORDER", "class_name": "Recorder" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Recorder"] }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV" }],
+  "ratelimits": [
+    { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "rivian-mcp", "migrations_dir": "worker/migrations" }
+  ]
+}
