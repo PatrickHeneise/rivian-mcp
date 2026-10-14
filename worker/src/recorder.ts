@@ -141,7 +141,7 @@ export class Recorder extends DurableObject<Env> {
         await createCsrfToken(session)
         return (await login(session, email, password)).mfa
       },
-      validateOtp: (session, email, code) => validateOtp(session, email, code),
+      validateOtp,
       activate: (session, email) => this.activate(session, email),
       newSession: emptySession,
       now: Date.now,
