@@ -10,8 +10,8 @@ This is unofficial. It is not affiliated with or endorsed by Rivian. It only rea
 
 ## What you need
 
-- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
-- A free [GitHub](https://github.com/signup) account. Cloudflare keeps your copy of the project there.
+- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account. Step 2 shows how to create it.
+- A free [GitHub](https://github.com/signup) account. You fork the project into it, and Cloudflare deploys from your fork.
 - Your Rivian email and password, and the phone or email that gets Rivian's one-time code.
 - A [Claude](https://claude.ai) account, or ChatGPT with custom connectors (see [Connect ChatGPT](#connect-chatgpt)).
 
@@ -21,18 +21,27 @@ Plan on 15 minutes.
 
 Start with the free Cloudflare plan. Its limits for the part that stays connected to your Rivian (Durable Objects) are 100,000 requests and 13,000 GB-seconds per day ([Cloudflare pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)). I have not measured how much of that this uses. If recording stops partway through a day, you hit a limit. Workers Paid starts at $5 per month.
 
-## Step 1: Deploy
+## Step 1: Fork the repo
 
-1. Select this button:
+A fork is your own copy of the project in your GitHub account. Cloudflare deploys from it.
 
-   [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/PatrickHeneise/rivian-mcp)
+1. Sign in to [GitHub](https://github.com/login).
+2. Open <https://github.com/PatrickHeneise/rivian-mcp>.
+3. Select **Fork**, then **Create fork**.
 
-2. Sign in to Cloudflare and connect your GitHub account when asked.
-3. Keep the suggested names, or pick your own.
-4. Select **Create and deploy**.
-5. Turn off preview builds: open **Workers & Pages**, then **rivian-mcp**, then **Settings**, then **Build**. Under **Branch control**, clear **Enable Preview Builds**. Your copy has one recorder, so a preview of another branch has nothing to do.
+You now have `github.com/<your-github-name>/rivian-mcp`.
 
-Cloudflare copies the project to your GitHub, creates the storage it needs, and starts it. When it is done, it shows your address:
+## Step 2: Deploy your fork
+
+1. Open the [Cloudflare dashboard](https://dash.cloudflare.com) and sign in. No account yet? Select **Sign up**, enter your email and a password, and open the link in the verification email. Skip the offers to add a website.
+2. Open **Workers & Pages**. Select **Create application**, then **Get started** next to **Import a repository**.
+3. Connect your GitHub account when asked. Allow access to your fork.
+4. Choose the `rivian-mcp` repository. Keep the Worker name `rivian-mcp`.
+5. Open the advanced build settings. Set **Deploy command** to `npm run deploy`. Leave **Build command** empty.
+6. Select **Save and Deploy**.
+7. Turn off preview builds: open **Workers & Pages**, then **rivian-mcp**, then **Settings**, then **Build**. Under **Branch control**, clear **Enable Preview Builds**. Your copy has one recorder, so a preview of another branch has nothing to do.
+
+Cloudflare builds your fork, creates the storage it needs, sets up the database and starts it. This takes a few minutes. When it is done, it shows your address:
 
 ```text
 https://rivian-mcp.<your-name>.workers.dev
@@ -40,7 +49,9 @@ https://rivian-mcp.<your-name>.workers.dev
 
 You can find it again in the Cloudflare dashboard: **Workers & Pages**, then **rivian-mcp**.
 
-## Step 2: Find your connector address
+If the build fails, open the build log under **Deployments**.
+
+## Step 3: Find your connector address
 
 Add `/mcp` to the end of your address:
 
@@ -90,7 +101,7 @@ Rivian ends sign-ins after a while. When that happens, Claude says "Not signed i
 
 ## Update
 
-Your copy lives in your GitHub account. To get a newer version, open your copy on GitHub and select **Sync fork** if it shows. Otherwise, run the Deploy button again. Cloudflare deploys every change to your copy by itself.
+To get a newer version, open your fork on GitHub and select **Sync fork**, then **Update branch**. Cloudflare deploys every change to your fork by itself.
 
 ## Your data
 
@@ -102,11 +113,11 @@ Your copy lives in your GitHub account. To get a newer version, open your copy o
 
 ## Remove it
 
-In the Cloudflare dashboard, open **Workers & Pages**, select **rivian-mcp**, then **Settings**, then **Delete**. Under **Storage & Databases**, delete the D1 database and the KV namespace whose names start with `rivian-mcp`. Remove the connector in Claude or ChatGPT. You can delete your copy on GitHub too.
+In the Cloudflare dashboard, open **Workers & Pages**, select **rivian-mcp**, then **Settings**, then **Delete**. Under **Storage & Databases**, delete the D1 database and the KV namespace whose names start with `rivian-mcp`. Remove the connector in Claude or ChatGPT. You can delete your fork on GitHub too.
 
 ## Set it up from a terminal instead
 
-If you would rather not use GitHub, you need [Node.js 24](https://nodejs.org) or newer.
+If you would rather not use GitHub or the browser, you need [Node.js 24](https://nodejs.org) or newer.
 
 ```sh
 git clone https://github.com/PatrickHeneise/rivian-mcp.git
