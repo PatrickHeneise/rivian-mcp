@@ -23,6 +23,8 @@ const VEHICLE = { id: 'v', name: null, model: 'R1S', modelYear: 2025 }
 class Gate {
   promise: Promise<void>
   open!: () => void
+  /** Resolves when a batch has reached the gate. */
+  reached = Promise.withResolvers<void>()
   constructor() {
     this.promise = new Promise((resolve) => {
       this.open = resolve
@@ -47,7 +49,10 @@ function fakeD1() {
     prepare: (sql: string) => statement(sql),
     batch: async (statements: ReturnType<typeof statement>[]) => {
       hooks.batches++
-      if (hooks.gate) await hooks.gate.promise
+      if (hooks.gate) {
+        hooks.gate.reached.resolve()
+        await hooks.gate.promise
+      }
       if (hooks.failNext) {
         hooks.failNext = false
         throw new Error('D1 unavailable')
@@ -150,14 +155,21 @@ test('a power sample after the last move still closes the drive', async () => {
   assert.equal(t.internals.states.get('v')?.drive, null)
 })
 
-test('a point that arrives while a drive closes is not carried into a later drive', async () => {
+test('a point that arrives while a drive closes waits and is not carried into a later drive', async () => {
   const t = await setup()
   await openDrive(t, 1_000, 6_000)
-  t.hooks.gate = new Gate()
+  const gate = new Gate()
+  t.hooks.gate = gate
   const closing = t.power(SLEEP, 7_000)
-  const moving = t.gps(0.002, 12_000)
-  t.hooks.gate.open()
+  await gate.reached.promise
+  let handled = false
+  const moving = t.gps(0.002, 12_000).then(() => {
+    handled = true
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(handled, false)
   t.hooks.gate = null
+  gate.open()
   await Promise.all([closing, moving])
   await t.internals.flushAll()
   const rows = t.sqlite.prepare('SELECT drive_id, ts FROM points ORDER BY ts').all()
