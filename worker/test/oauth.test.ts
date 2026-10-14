@@ -85,7 +85,7 @@ test('the owner email is matched ignoring case and spaces, and asks for the code
   const t = setup()
   const res = await t.post('/authorize', password(` ${OWNER.toUpperCase()} `))
   assert.match(await res.text(), /Enter your Rivian code/)
-  assert.deepEqual(t.calls, [`startPendingLogin  ${OWNER.toUpperCase()} `])
+  assert.deepEqual(t.calls, [`startPendingLogin ${OWNER.toUpperCase()}`])
 })
 
 test('with no owner yet, any email reaches Rivian to claim the server', async () => {

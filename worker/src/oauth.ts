@@ -132,7 +132,7 @@ async function submitPassword(request: Request, env: Env, oauth: OAuthHelpers): 
   if (await overLimit(env, 'global')) return tooManyAttempts()
   let login: StartResult
   try {
-    login = await recorder(env).startPendingLogin(email, String(form.get('password') ?? ''))
+    login = await recorder(env).startPendingLogin(email.trim(), String(form.get('password') ?? ''))
   } catch (error) {
     return signInPage(oauth, approved.request, rivianError(error), approved.headers)
   }
