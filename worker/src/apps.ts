@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/ext-apps/server'
 import type { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
+import { text } from '../../src/tools.ts'
 import html from '../dist/app.html'
 import type {
   ChargeSessionView,
@@ -86,8 +87,7 @@ export function registerApps(server: McpServer, env: Env): void {
     },
     async ({ id }) => {
       const view = await driveView(env.DB, id)
-      if (!view)
-        return { content: [{ type: 'text', text: `No drive${id ? ` with id ${id}` : ''}.` }] }
+      if (!view) return text(`No drive${id ? ` with id ${id}` : ''}.`)
       const d = view.drive
       const lines = [
         `Drive ${d.id}: ${iso(d.startedAt)}, ${km(d.distanceM)} in ${Math.round(d.durationMs / 60_000)} min.`,
@@ -98,7 +98,7 @@ export function registerApps(server: McpServer, env: Env): void {
           ? `Elevation: +${Math.round(d.elevation.gainM)} m, -${Math.round(d.elevation.lossM)} m.`
           : 'Elevation: no altitude data.',
       ]
-      return { content: [{ type: 'text', text: lines.join('\n') }], structuredContent: view }
+      return { ...text(lines.join('\n')), structuredContent: view }
     },
   )
 
@@ -116,7 +116,7 @@ export function registerApps(server: McpServer, env: Env): void {
       const view = await statsView(env.DB, days)
       const distance = view.drives.reduce((sum, d) => sum + d.distanceM, 0)
       const energy = view.drives.reduce((sum, d) => sum + (d.energyKwh ?? 0), 0)
-      const text = [
+      const summaryText = [
         `Last ${days} days: ${view.drives.length} drives, ${km(distance)}, ${energy.toFixed(1)} kWh measured.`,
         view.skipped
           ? `${view.skipped} drives left out as GPS noise (under ${MIN_DRIVE_M} m, or averaging under ${MIN_AVG_SPEED_MPS} m/s).`
@@ -124,7 +124,7 @@ export function registerApps(server: McpServer, env: Env): void {
       ]
         .filter(Boolean)
         .join('\n')
-      return { content: [{ type: 'text', text }], structuredContent: view }
+      return { ...text(summaryText), structuredContent: view }
     },
   )
 
@@ -141,8 +141,12 @@ export function registerApps(server: McpServer, env: Env): void {
     async ({ days }) => {
       const view = await chargingView(env.DB, days)
       const energy = view.sessions.reduce((sum, s) => sum + s.energyKwh, 0)
-      const text = `Last ${days} days: ${view.sessions.length} charging sessions, ${energy.toFixed(1)} kWh added.`
-      return { content: [{ type: 'text', text }], structuredContent: view }
+      return {
+        ...text(
+          `Last ${days} days: ${view.sessions.length} charging sessions, ${energy.toFixed(1)} kWh added.`,
+        ),
+        structuredContent: view,
+      }
     },
   )
 }
