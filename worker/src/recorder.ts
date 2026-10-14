@@ -153,7 +153,7 @@ export class Recorder extends DurableObject<Env> {
     if (!session.userSessionToken) {
       throw new Error('Not signed in to Rivian. Reconnect the Rivian connector to sign in again.')
     }
-    return { session, vehicles: (await this.ctx.storage.get<Vehicle[]>('vehicles')) ?? [] }
+    return { session, vehicles: await this.vehicles() }
   }
 
   async status(): Promise<RecorderStatus> {
@@ -162,7 +162,7 @@ export class Recorder extends DurableObject<Env> {
     return {
       loggedIn: Boolean(session.userSessionToken),
       connected: this.ws?.readyState === WebSocket.OPEN,
-      vehicles: (await this.ctx.storage.get<Vehicle[]>('vehicles')) ?? [],
+      vehicles: await this.vehicles(),
       openDrives: [...this.states.entries()].flatMap(([vehicleId, s]) =>
         s.drive ? [{ vehicleId, startedAt: s.drive.startedAt, distanceM: s.drive.distanceM }] : [],
       ),
@@ -181,8 +181,7 @@ export class Recorder extends DurableObject<Env> {
     await this.flushAll()
     await recoverConnection({
       session: () => this.session(),
-      storedVehicleCount: async () =>
-        ((await this.ctx.storage.get<Vehicle[]>('vehicles')) ?? []).length,
+      storedVehicleCount: async () => (await this.vehicles()).length,
       discoverVehicles: async (session) => {
         await this.ctx.storage.put('vehicles', await getVehicles(session))
       },
@@ -212,6 +211,10 @@ export class Recorder extends DurableObject<Env> {
     return (await this.ctx.storage.get<Session>('session')) ?? emptySession()
   }
 
+  private async vehicles(): Promise<Vehicle[]> {
+    return (await this.ctx.storage.get<Vehicle[]>('vehicles')) ?? []
+  }
+
   private async scheduleAlarm(ms = WATCHDOG_MS): Promise<void> {
     const at = Date.now() + ms
     const current = await this.ctx.storage.getAlarm()
@@ -220,7 +223,7 @@ export class Recorder extends DurableObject<Env> {
 
   private async openSocket(): Promise<void> {
     const session = await this.session()
-    const vehicles = (await this.ctx.storage.get<Vehicle[]>('vehicles')) ?? []
+    const vehicles = await this.vehicles()
     if (!session.userSessionToken || vehicles.length === 0) return
 
     let ws: WebSocket
