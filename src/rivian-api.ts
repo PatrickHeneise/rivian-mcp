@@ -180,6 +180,14 @@ export interface DriversAndKeys {
   }[]
 }
 
+/** A vehicle on the account, as the recorder stores it. */
+export interface Vehicle {
+  id: string
+  name: string | null
+  model: string
+  modelYear: number
+}
+
 /** A GraphQL error with Rivian's extension code and reason. */
 export interface RivianError extends Error {
   code?: string
@@ -269,6 +277,7 @@ export async function login(
 }
 
 export async function validateOtp(session: Session, email: string, otpCode: string): Promise<void> {
+  if (!session.otpToken) throw new Error('No pending login. Start with rivian_login first.')
   const data = await gql<{ loginWithOTP: LoginTokens | null }>(
     GRAPHQL_GATEWAY,
     {
@@ -353,6 +362,27 @@ export async function getUserInfo(session: Session): Promise<UserInfo> {
 
   return (await gql<{ currentUser: UserInfo }>(GRAPHQL_GATEWAY, body, authHeaders(session)))
     .currentUser
+}
+
+export async function getVehicles(session: Session): Promise<Vehicle[]> {
+  const body = {
+    operationName: 'getUserInfo',
+    query: `query getUserInfo {
+  currentUser { vehicles { id name vehicle { model modelYear } } }
+}`,
+    variables: null,
+  }
+  const data = await gql<{
+    currentUser: {
+      vehicles: { id: string; name: string | null; vehicle: { model: string; modelYear: number } }[]
+    }
+  }>(GRAPHQL_GATEWAY, body, authHeaders(session))
+  return data.currentUser.vehicles.map((v) => ({
+    id: v.id,
+    name: v.name,
+    model: v.vehicle.model,
+    modelYear: v.vehicle.modelYear,
+  }))
 }
 
 export async function getVehicleState(

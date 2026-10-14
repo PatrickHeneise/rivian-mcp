@@ -4,3 +4,5 @@
 node_modules
 .remember
 dist
+.dev.vars
+.wrangler
