@@ -36,6 +36,8 @@ export interface Drive {
   /** Position at lastMovingAt. Missing on drives stored before 2026-10-10. */
   movingLat?: number
   movingLon?: number
+  /** Distance at lastMovingAt, so a closed drive drops what parked GPS jitter added after it. */
+  movingDistanceM?: number
 }
 
 /**
@@ -75,6 +77,7 @@ export function onPoint(
         lastMovingAt: point.ts,
         movingLat: point.lat,
         movingLon: point.lon,
+        movingDistanceM: moved,
       },
       parkedAt: null,
       stored: point,
@@ -89,6 +92,8 @@ export function onPoint(
     next.lastMovingAt = Math.max(next.lastMovingAt, point.ts)
     next.movingLat = point.lat
     next.movingLon = point.lon
+    next.movingDistanceM =
+      drive.distanceM + distanceM(drive.endLat, drive.endLon, point.lat, point.lon)
   }
   if (point.ts - drive.lastStoredAt < STORE_INTERVAL_MS) {
     return { drive: next, parkedAt: null, stored: null }
@@ -137,6 +142,7 @@ export function close(drive: Drive, odometerKm: number | null): Drive {
     endLat: drive.movingLat ?? drive.endLat,
     endLon: drive.movingLon ?? drive.endLon,
     endOdometerKm: odometerKm ?? drive.endOdometerKm,
+    distanceM: drive.movingDistanceM ?? drive.distanceM,
   }
 }
 

@@ -161,3 +161,19 @@ test('a replayed older point is ignored, an equal or newer one is not', () => {
   assert.equal(isOlderPoint(last, point(7_000, 0.002, 0)), false)
   assert.equal(isOlderPoint(null, point(0, 0, 0)), false)
 })
+
+test('a closed drive drops the distance that parked GPS jitter added after its last move', () => {
+  let drive: Drive | null = open()
+  const movedM = drive.distanceM
+  // Alternates ~22 m apart: within MOVE_DISTANCE_M of the last moving position every time.
+  for (let i = 1; i <= 35; i++) {
+    const ts = 1_000 + i * 5_000
+    const lat = i % 2 === 0 ? 0.001 : 0.0012
+    ;({ drive } = onPoint(drive, null, 'v', point(ts, lat, 0), null))
+  }
+  assert.ok(drive)
+  assert.ok(drive.distanceM > movedM * 2)
+  const closed = close(drive, null)
+  assert.equal(closed.endedAt, 1_000)
+  assert.equal(closed.distanceM, movedM)
+})
