@@ -7,11 +7,14 @@ const { handleAuthorize } = await import('../src/oauth.ts')
 
 const OWNER = 'owner@example.com'
 
-function setup(opts: { limited?: boolean; start?: object; finishError?: Error } = {}) {
+function setup(
+  opts: { limited?: boolean; start?: object; finishError?: Error; owner?: string | null } = {},
+) {
   const calls: string[] = []
   const recorder = {
-    startPendingLogin: async () => {
-      calls.push('startPendingLogin')
+    ownerEmail: async () => (opts.owner === undefined ? OWNER : opts.owner),
+    startPendingLogin: async (email: string) => {
+      calls.push(`startPendingLogin ${email}`)
       return opts.start ?? { result: 'otp_sent', pendingId: 'p1' }
     },
     finishPendingLogin: async () => {
@@ -20,7 +23,6 @@ function setup(opts: { limited?: boolean; start?: object; finishError?: Error } 
     },
   }
   const env = {
-    RIVIAN_EMAIL: OWNER,
     RECORDER: { idFromName: () => 'id', get: () => recorder },
     LOGIN_LIMITER: { limit: async () => ({ success: !opts.limited }) },
   }
@@ -83,7 +85,14 @@ test('the owner email is matched ignoring case and spaces, and asks for the code
   const t = setup()
   const res = await t.post('/authorize', password(` ${OWNER.toUpperCase()} `))
   assert.match(await res.text(), /Enter your Rivian code/)
-  assert.deepEqual(t.calls, ['startPendingLogin'])
+  assert.deepEqual(t.calls, [`startPendingLogin ${OWNER.toUpperCase()}`])
+})
+
+test('with no owner yet, any email reaches Rivian to claim the server', async () => {
+  const t = setup({ owner: null })
+  const res = await t.post('/authorize', password('new@example.com'))
+  assert.match(await res.text(), /Enter your Rivian code/)
+  assert.deepEqual(t.calls, ['startPendingLogin new@example.com'])
 })
 
 test('a login without a code completes the authorization', async () => {

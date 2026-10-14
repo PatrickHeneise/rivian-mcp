@@ -26,8 +26,10 @@ import {
 import {
   finishPending,
   type LoginDeps,
+  ownerEmail,
   recoverConnection,
   type StartResult,
+  sameEmail,
   startPending,
 } from './logins.ts'
 import {
@@ -105,8 +107,8 @@ export class Recorder extends DurableObject<Env> {
    * replaced only once Rivian accepts it, so abandoned or overlapping sign-ins change nothing.
    * Returns a `pendingId` for `finishPendingLogin` when Rivian wants a code.
    */
-  async startPendingLogin(password: string): Promise<StartResult> {
-    return startPending(this.loginDeps(), password)
+  async startPendingLogin(email: string, password: string): Promise<StartResult> {
+    return startPending(this.loginDeps(), email, password)
   }
 
   /**
@@ -117,6 +119,11 @@ export class Recorder extends DurableObject<Env> {
    */
   async finishPendingLogin(pendingId: string, code: string): Promise<void> {
     await finishPending(this.loginDeps(), pendingId, code)
+  }
+
+  /** See `ownerEmail` in logins.ts. */
+  async ownerEmail(): Promise<string | null> {
+    return ownerEmail(this.env.RIVIAN_EMAIL, await this.ctx.storage.get<string>('owner'))
   }
 
   private readonly pendingInFlight = new Set<string>()
@@ -130,12 +137,13 @@ export class Recorder extends DurableObject<Env> {
         delete: (keys) => storage.delete(keys as string[]),
         list: (prefix) => storage.list<PendingLogin>({ prefix }),
       },
-      login: async (session, password) => {
+      login: async (session, email, password) => {
         await createCsrfToken(session)
-        return (await login(session, this.env.RIVIAN_EMAIL, password)).mfa
+        return (await login(session, email, password)).mfa
       },
-      validateOtp: (session, code) => validateOtp(session, this.env.RIVIAN_EMAIL, code),
-      activate: (session) => this.activate(session),
+      validateOtp,
+      activate: (session, email) => this.activate(session, email),
+      configuredEmail: this.env.RIVIAN_EMAIL,
       newSession: emptySession,
       now: Date.now,
       newId: () => crypto.randomUUID(),
@@ -143,8 +151,18 @@ export class Recorder extends DurableObject<Env> {
     }
   }
 
-  /** Stores a verified session and starts recording. Startup errors go to `lastError`. */
-  private async activate(session: Session): Promise<void> {
+  /**
+   * Stores a verified session and starts recording. Startup errors go to `lastError`.
+   * With no owner yet, this sign-in claims the Worker. The owner is stored on every sign-in, so
+   * removing `RIVIAN_EMAIL` later keeps the account. Only storage calls sit between the read and
+   * the write, so the input gate keeps two sign-ins from both claiming it.
+   */
+  private async activate(session: Session, email: string): Promise<void> {
+    const owner = await this.ownerEmail()
+    if (owner && !sameEmail(owner, email)) {
+      throw new Error('This server records a different Rivian account.')
+    }
+    await this.ctx.storage.put('owner', email.trim().toLowerCase())
     await this.ctx.storage.put('session', session)
     try {
       await this.afterLogin(session)

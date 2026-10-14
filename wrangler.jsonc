@@ -8,6 +8,9 @@
   "compatibility_date": "2026-10-01",
   "build": { "command": "npm run worker:build", "watch_dir": "worker/ui" },
   "observability": { "enabled": true },
+  // No <version>-rivian-mcp.<subdomain>.workers.dev URLs. Preview builds for non-production
+  // branches are a dashboard setting: Settings > Build > Branch control.
+  "preview_urls": false,
   "durable_objects": {
     "bindings": [{ "name": "RECORDER", "class_name": "Recorder" }]
   },

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
 import { afterEach, mock, test } from 'node:test'
-import { emptySession } from '../../src/rivian-api.ts'
+import { emptySession, type Session } from '../../src/rivian-api.ts'
 import './support/cloudflare-stub.ts'
 
 // The Recorder extends a class from `cloudflare:workers`, which the stub provides.
@@ -89,13 +89,13 @@ function fakeStorage() {
   }
 }
 
-async function setup() {
+async function setup(email: string | null = 'owner@example.com') {
   const { db, sqlite, hooks } = fakeD1()
   const storage = fakeStorage()
   await storage.put('session', { ...emptySession(), userSessionToken: 'token' })
   await storage.put('vehicles', [VEHICLE])
   const ctx = { storage, waitUntil: (p: Promise<unknown>) => void p.catch(() => {}) }
-  const env = { DB: db, RIVIAN_EMAIL: 'owner@example.com' }
+  const env = { DB: db, RIVIAN_EMAIL: email ?? undefined }
   const recorder = new Recorder(ctx as never, env as never)
   const internals = recorder as unknown as Internals
   const send = (message: object) =>
@@ -231,4 +231,66 @@ test('a point after a failed close ends the old drive before it opens a new one'
   const ended = t.sqlite.prepare('SELECT ended_at FROM drives WHERE id = ?').get('v-6000')
   assert.equal(ended?.ended_at, 6_000)
   assert.equal(t.internals.states.get('v')?.drive?.id, 'v-12000')
+})
+
+/** Rivian accepts every code. Anything after sign-in fails, which `activate` records as `lastError`. */
+function acceptCodes() {
+  globalThis.fetch = (async (_url: unknown, init?: { body?: string }) => {
+    if (!String(init?.body).includes('LoginWithOTP')) throw new Error('offline')
+    const tokens = {
+      __typename: 'MobileLoginResponse',
+      accessToken: 'a',
+      refreshToken: 'r',
+      userSessionToken: 'u',
+    }
+    return new Response(JSON.stringify({ data: { loginWithOTP: tokens } }))
+  }) as typeof fetch
+}
+
+const pendingLogin = (email: string) => ({
+  session: { ...emptySession(), otpToken: 'otp' },
+  email,
+  createdAt: Date.now(),
+})
+
+test('the first sign-in claims the worker and a different account is then refused', async () => {
+  acceptCodes()
+  const t = await setup(null)
+  await t.storage.put('session', emptySession())
+  await t.storage.put('pending:a', pendingLogin('First@Example.com'))
+  await t.storage.put('pending:b', pendingLogin('other@example.com'))
+  assert.equal(await t.recorder.ownerEmail(), null)
+  await t.recorder.finishPendingLogin('a', '123456')
+  assert.equal(await t.recorder.ownerEmail(), 'first@example.com')
+  const claimed = await t.storage.get('session')
+
+  const restarted = new Recorder(
+    { storage: t.storage, waitUntil() {} } as never,
+    { DB: {}, RIVIAN_EMAIL: undefined } as never,
+  )
+  await assert.rejects(restarted.finishPendingLogin('b', '123456'), /different Rivian account/)
+  assert.equal(await restarted.ownerEmail(), 'first@example.com')
+  assert.deepEqual(await t.storage.get('session'), claimed)
+  assert.equal(((await t.storage.get('session')) as Session).userSessionToken, 'u')
+})
+
+test('a configured RIVIAN_EMAIL refuses another account before it claims', async () => {
+  acceptCodes()
+  const t = await setup('owner@example.com')
+  await t.storage.put('pending:b', pendingLogin('other@example.com'))
+  await assert.rejects(t.recorder.finishPendingLogin('b', '123456'), /different Rivian account/)
+  assert.equal(t.storage.data.has('owner'), false)
+  assert.equal(((await t.storage.get('session')) as Session).userSessionToken, 'token')
+})
+
+test('the owner stays after RIVIAN_EMAIL is removed', async () => {
+  acceptCodes()
+  const t = await setup('Owner@Example.com')
+  await t.storage.put('pending:a', pendingLogin('owner@example.com'))
+  await t.recorder.finishPendingLogin('a', '123456')
+  const restarted = new Recorder(
+    { storage: t.storage, waitUntil() {} } as never,
+    { DB: {}, RIVIAN_EMAIL: undefined } as never,
+  )
+  assert.equal(await restarted.ownerEmail(), 'owner@example.com')
 })

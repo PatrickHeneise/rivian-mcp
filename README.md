@@ -20,8 +20,10 @@ The Deploy button also asks you to connect a GitHub account. Cloudflare keeps yo
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/PatrickHeneise/rivian-mcp)
 
 1. Select the button and sign in to Cloudflare.
-2. Enter your Rivian email in `RIVIAN_EMAIL`. Only this email can sign in to your copy.
-3. Select **Create and deploy**.
+2. Select **Create and deploy**.
+3. In the Worker's **Settings**, then **Build**, clear **Enable Preview Builds**.
+
+The first Rivian account that signs in owns your copy. Connect Claude right after you deploy.
 
 Cloudflare creates the storage and starts the server. It shows your address:
 
