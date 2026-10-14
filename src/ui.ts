@@ -23,14 +23,19 @@ export function logo() {
 
 // ── Section headers ──────────────────────────────────────────────────
 
-export function section(title) {
+export function section(title: string) {
   const bar = '━'.repeat(Math.max(0, 40 - title.length - 1))
   return c.brand(`${title} ${bar}`)
 }
 
 // ── Progress bar ─────────────────────────────────────────────────────
 
-export function bar(value, max = 100, width = 20, opts = {}) {
+export function bar(
+  value: number,
+  max = 100,
+  width = 20,
+  opts: { filledChar?: string; emptyChar?: string } = {},
+) {
   const pct = Math.max(0, Math.min(1, value / max))
   const filled = Math.round(pct * width)
   const empty = width - filled
@@ -50,7 +55,7 @@ export function bar(value, max = 100, width = 20, opts = {}) {
 
 // ── Key-value alignment ──────────────────────────────────────────────
 
-export function kv(label, value, suffix = '', labelWidth = 18) {
+export function kv(label: string, value: unknown, suffix = '', labelWidth = 18) {
   if (value === null || value === undefined) return null
   const padded = label.padEnd(labelWidth)
   return `  ${c.dim(padded)} ${value}${suffix}`
@@ -58,8 +63,8 @@ export function kv(label, value, suffix = '', labelWidth = 18) {
 
 // ── Table ────────────────────────────────────────────────────────────
 
-export function table(headers, rows, colWidths) {
-  const lines = []
+export function table(headers: string[], rows: unknown[][], colWidths: number[]) {
+  const lines: string[] = []
 
   const headerLine = headers.map((h, i) => c.dim(h.padEnd(colWidths[i]))).join('  ')
   lines.push(`  ${headerLine}`)
@@ -77,8 +82,12 @@ export function table(headers, rows, colWidths) {
 
 // ── Vehicle diagram (doors/windows) ──────────────────────────────────
 
-export function vehicleDiagram(doors) {
-  const dot = (closed, locked) => {
+type Corner = 'fl' | 'fr' | 'rl' | 'rr'
+
+export function vehicleDiagram(
+  doors: Partial<Record<Corner, { closed?: unknown; locked?: unknown }>>,
+) {
+  const dot = (closed: unknown, locked: unknown) => {
     if (closed === 'closed' && locked === 'locked') return c.green('●')
     if (closed === 'closed') return c.yellow('●')
     if (closed === 'open') return c.red('○')
@@ -102,8 +111,8 @@ export function vehicleDiagram(doors) {
 
 // ── Tire diagram ─────────────────────────────────────────────────────
 
-export function tireDiagram(tires) {
-  const okColor = (value) => {
+export function tireDiagram(tires: Partial<Record<Corner, string | null>>) {
+  const okColor = (value: string | null | undefined) => {
     if (!value) return '--'
     const lower = value.toLowerCase()
     if (lower === 'ok' || lower === 'normal') return c.green(value)
@@ -116,7 +125,7 @@ export function tireDiagram(tires) {
   const rr = okColor(tires.rr)
 
   // Right-pad visible text to fixed width before adding color
-  const padLeft = (label, val, rawVal, width = 10) => {
+  const padLeft = (label: string, val: string, rawVal: string | null | undefined, width = 10) => {
     const visible = `${label}: ${rawVal || '--'}`
     const padding = ' '.repeat(Math.max(0, width - visible.length))
     return `${padding}${label}: ${val}`
@@ -134,7 +143,7 @@ export function tireDiagram(tires) {
 
 // ── Closures line ────────────────────────────────────────────────────
 
-export function closureStatus(name, closed, locked) {
+export function closureStatus(name: string, closed: unknown, locked: unknown) {
   const parts = [closed, locked].filter(Boolean)
   if (!parts.length) return null
   const allGood = closed === 'closed' && locked === 'locked'

@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 import { createInterface } from 'node:readline'
-import * as rivian from './lib/rivian-api.js'
-import { formatOTAStatus, formatVehicleState } from './lib/format.js'
-import { loadSession, saveSession } from './lib/session.js'
-import { logo, c } from './lib/ui.js'
+import { formatOTAStatus, formatVehicleState } from './format.ts'
+import * as rivian from './rivian-api.ts'
+import { loadSession, saveSession } from './session.ts'
+import { c, logo } from './ui.ts'
 
-function prompt(question) {
+const session = rivian.emptySession()
+
+function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stderr })
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
@@ -16,7 +18,7 @@ function prompt(question) {
   })
 }
 
-function promptSecret(question) {
+function promptSecret(question: string): Promise<string> {
   return new Promise((resolve) => {
     process.stderr.write(question)
     const stdin = process.stdin
@@ -26,7 +28,7 @@ function promptSecret(question) {
     stdin.setEncoding('utf8')
 
     let input = ''
-    const onData = (ch) => {
+    const onData = (ch: string) => {
       if (ch === '\n' || ch === '\r' || ch === '\u0004') {
         stdin.removeListener('data', onData)
         stdin.setRawMode(wasRaw)
@@ -51,15 +53,15 @@ function promptSecret(question) {
 }
 
 async function ensureAuth() {
-  const result = loadSession(rivian)
+  const result = loadSession(session)
   if (result === true) return
 
   // OTP was already initiated (e.g. via MCP login) — just complete it
   if (result === 'needs_otp') {
     const email = process.env.RIVIAN_EMAIL || (await prompt(`${c.dim('Rivian email:')} `))
     const code = await promptSecret(`${c.dim('Verification code:')} `)
-    await rivian.validateOtp(email, code)
-    saveSession(rivian)
+    await rivian.validateOtp(session, email, code)
+    saveSession(session)
     return
   }
 
@@ -69,19 +71,19 @@ async function ensureAuth() {
   if (!email) email = await prompt(`${c.dim('Rivian email:')} `)
   if (!password) password = await promptSecret(`${c.dim('Rivian password:')} `)
 
-  await rivian.createCsrfToken()
-  const { mfa } = await rivian.login(email, password)
+  await rivian.createCsrfToken(session)
+  const { mfa } = await rivian.login(session, email, password)
 
-  if (mfa || rivian.needsOtp()) {
+  if (mfa || rivian.needsOtp(session)) {
     const code = await promptSecret(`${c.dim('Verification code:')} `)
-    await rivian.validateOtp(email, code)
+    await rivian.validateOtp(session, email, code)
   }
 
-  saveSession(rivian)
+  saveSession(session)
 }
 
 async function resolveVehicleId() {
-  const user = await rivian.getUserInfo()
+  const user = await rivian.getUserInfo(session)
   if (!user.vehicles?.length) throw new Error('No vehicles found on your Rivian account.')
   return user.vehicles[0].id
 }
@@ -108,7 +110,7 @@ try {
 
   if (command === 'ota') {
     const vehicleId = await resolveVehicleId()
-    const data = await rivian.getOTAUpdateDetails(vehicleId)
+    const data = await rivian.getOTAUpdateDetails(session, vehicleId)
     console.log('')
     console.log(`  ${logo()}`)
     console.log('')
@@ -116,7 +118,7 @@ try {
     console.log('')
   } else if (command === 'stats') {
     const vehicleId = await resolveVehicleId()
-    const state = await rivian.getVehicleState(vehicleId)
+    const state = await rivian.getVehicleState(session, vehicleId)
     console.log('')
     console.log(`  ${logo()}`)
     console.log('')
@@ -127,7 +129,8 @@ try {
     console.error(c.dim('Run "rivian help" for usage.'))
     process.exit(1)
   }
-} catch (err) {
+} catch (e) {
+  const err = e as rivian.RivianError
   console.error(`${c.red('Error:')} ${err.message}`)
   if (err.code) console.error(c.dim(`  Code: ${err.code}`))
   if (err.reason) console.error(c.dim(`  Reason: ${err.reason}`))

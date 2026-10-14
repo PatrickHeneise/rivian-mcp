@@ -1,28 +1,31 @@
-import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { beforeEach, test } from 'node:test'
 import {
-  getChargingHistory,
+  emptySession,
   getAllChargingHistory,
-  getLiveChargingSession,
+  getChargingHistory,
   getChargingState,
-} from '../lib/rivian-api.js'
+  getLiveChargingSession,
+} from '../src/rivian-api.ts'
+
+const session = emptySession()
 
 // ── Mock fetch ────────────────────────────────────────────────────────
 
-let requests = []
-let responses = []
+let requests: { operationName: string; query: string; variables: Record<string, unknown> }[] = []
+let responses: unknown[] = []
 
 beforeEach(() => {
   requests = []
   responses = []
-  globalThis.fetch = async (_url, options) => {
-    requests.push(JSON.parse(options.body))
+  globalThis.fetch = (async (_url: unknown, options: RequestInit) => {
+    requests.push(JSON.parse(options.body as string))
     const data = responses.shift()
     return { ok: true, json: async () => ({ data }) }
-  }
+  }) as unknown as typeof fetch
 })
 
-const item = (id, extra = {}) => ({
+const item = (id: string, extra = {}) => ({
   transactionId: id,
   vehicleId: 'v1',
   vehicleName: null,
@@ -52,7 +55,8 @@ test('getChargingHistory pages with searchAfter until hasNextPage is false', asy
       },
     },
   )
-  const sessions = await getChargingHistory('v1')
+  const sessions = await getChargingHistory(session, 'v1')
+  assert.ok(sessions)
   assert.equal(requests.length, 2)
   assert.equal(requests[0].operationName, 'getCompletedSessionSummariesV2')
   assert.deepEqual(requests[0].variables, { vehicleId: 'v1', pageSize: 100, searchAfter: null })
@@ -74,7 +78,8 @@ test('getChargingHistory fetches past 30 pages', async () => {
       },
     })
   }
-  const sessions = await getChargingHistory('v1')
+  const sessions = await getChargingHistory(session, 'v1')
+  assert.ok(sessions)
   assert.equal(requests.length, pages)
   assert.equal(sessions.length, pages)
 })
@@ -87,7 +92,7 @@ test('getChargingHistory throws on a repeated cursor', async () => {
     },
   })
   responses.push(page(), page(), page())
-  await assert.rejects(getChargingHistory('v1'), /repeated cursor/)
+  await assert.rejects(getChargingHistory(session, 'v1'), /repeated cursor/)
 })
 
 test('getChargingHistory throws when a later page is null', async () => {
@@ -100,12 +105,12 @@ test('getChargingHistory throws when a later page is null', async () => {
     },
     { getCompletedSessionSummariesV2: null },
   )
-  await assert.rejects(getChargingHistory('v1'), /page 2 after 1 sessions/)
+  await assert.rejects(getChargingHistory(session, 'v1'), /page 2 after 1 sessions/)
 })
 
 test('getChargingHistory returns null when the first page is null', async () => {
   responses.push({ getCompletedSessionSummariesV2: null })
-  assert.equal(await getChargingHistory('v1'), null)
+  assert.equal(await getChargingHistory(session, 'v1'), null)
 })
 
 test('getChargingHistory maps V2 items to the flat session shape', async () => {
@@ -129,7 +134,9 @@ test('getChargingHistory maps V2 items to the flat session shape', async () => {
       pageInfo: { nextCursor: null, hasNextPage: false },
     },
   })
-  const [paid, home] = await getChargingHistory('v1')
+  const history = await getChargingHistory(session, 'v1')
+  assert.ok(history)
+  const [paid, home] = history
   assert.equal(paid.startInstant, '2026-10-09T15:55:53.964Z')
   assert.equal(paid.totalEnergyKwh, 4.3)
   assert.equal(paid.rangeAddedKm, 15)
@@ -158,7 +165,8 @@ test('getAllChargingHistory merges every vehicle newest first', async () => {
       },
     },
   )
-  const sessions = await getAllChargingHistory()
+  const sessions = await getAllChargingHistory(session)
+  assert.ok(sessions)
   assert.deepEqual(
     requests.slice(1).map((r) => r.variables.vehicleId),
     ['v1', 'v2'],
@@ -171,14 +179,15 @@ test('getAllChargingHistory merges every vehicle newest first', async () => {
 
 test('getAllChargingHistory returns null when currentUser is null', async () => {
   responses.push({ currentUser: null })
-  assert.equal(await getAllChargingHistory(), null)
+  assert.equal(await getAllChargingHistory(session), null)
 })
 
 // ── getLiveChargingSession ────────────────────────────────────────────
 
 test('getLiveChargingSession queries getLiveSessionHistory', async () => {
   responses.push({ getLiveSessionHistory: { transactionId: 't1', soc: { value: 50 } } })
-  const data = await getLiveChargingSession('v1')
+  const data = await getLiveChargingSession(session, 'v1')
+  assert.ok(data)
   assert.equal(requests[0].operationName, 'getLiveSessionHistory')
   assert.doesNotMatch(requests[0].query, /getLiveSessionData/)
   assert.equal(data.transactionId, 't1')
@@ -188,15 +197,15 @@ test('getLiveChargingSession returns null when no session is active', async () =
   responses.push({
     getLiveSessionHistory: { transactionId: null, startTime: null, soc: null, chartData: [] },
   })
-  assert.equal(await getLiveChargingSession('v1'), null)
+  assert.equal(await getLiveChargingSession(session, 'v1'), null)
 })
 
 // ── getChargingState ──────────────────────────────────────────────────
 
 test('getChargingState reads only the charging fields from vehicle state', async () => {
   responses.push({ vehicleState: { chargerState: { timeStamp: 't', value: 'charging_active' } } })
-  const state = await getChargingState('v1')
-  assert.equal(state.chargerState.value, 'charging_active')
+  const state = await getChargingState(session, 'v1')
+  assert.equal(state.chargerState?.value, 'charging_active')
   assert.equal(requests[0].variables.vehicleID, 'v1')
   for (const field of ['batteryLevel', 'batteryLimit', 'timeToEndOfCharge', 'chargerState']) {
     assert.match(requests[0].query, new RegExp(`${field} \\{ timeStamp value \\}`))

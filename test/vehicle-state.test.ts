@@ -1,26 +1,28 @@
-import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { getVehicleState, getUserInfo } from '../lib/rivian-api.js'
+import { beforeEach, test } from 'node:test'
+import { emptySession, getUserInfo, getVehicleState } from '../src/rivian-api.ts'
+
+const session = emptySession()
 
 // ── Mock fetch ────────────────────────────────────────────────────────
 
-let capturedQuery = null
+let capturedQuery = ''
 
 beforeEach(() => {
-  capturedQuery = null
-  globalThis.fetch = async (_url, options) => {
-    capturedQuery = JSON.parse(options.body).query
+  capturedQuery = ''
+  globalThis.fetch = (async (_url: unknown, options: RequestInit) => {
+    capturedQuery = JSON.parse(options.body as string).query
     return {
       ok: true,
       json: async () => ({ data: { vehicleState: {} } }),
     }
-  }
+  }) as unknown as typeof fetch
 })
 
 // ── gnssLocation template ─────────────────────────────────────────────
 
 test('gnssLocation does not include isAuthorized', async () => {
-  await getVehicleState('test-id')
+  await getVehicleState(session, 'test-id')
   assert.match(capturedQuery, /gnssLocation \{ latitude longitude timeStamp \}/)
   assert.doesNotMatch(capturedQuery, /isAuthorized/)
 })
@@ -28,7 +30,7 @@ test('gnssLocation does not include isAuthorized', async () => {
 // ── OTA fields ────────────────────────────────────────────────────────
 
 test('OTA fields use { timeStamp value } sub-selection', async () => {
-  await getVehicleState('test-id')
+  await getVehicleState(session, 'test-id')
   for (const field of [
     'otaCurrentVersion',
     'otaAvailableVersion',
@@ -50,7 +52,7 @@ test('OTA fields use { timeStamp value } sub-selection', async () => {
 // ── Custom properties ─────────────────────────────────────────────────
 
 test('custom properties generate correct fragment', async () => {
-  await getVehicleState('test-id', new Set(['batteryLevel', 'powerState']))
+  await getVehicleState(session, 'test-id', new Set(['batteryLevel', 'powerState']))
   assert.match(capturedQuery, /batteryLevel \{ timeStamp value \}/)
   assert.match(capturedQuery, /powerState \{ timeStamp value \}/)
   assert.doesNotMatch(capturedQuery, /gnssLocation/)
@@ -58,14 +60,14 @@ test('custom properties generate correct fragment', async () => {
 })
 
 test('cloudConnection uses its custom template', async () => {
-  await getVehicleState('test-id', new Set(['cloudConnection']))
+  await getVehicleState(session, 'test-id', new Set(['cloudConnection']))
   assert.match(capturedQuery, /cloudConnection \{ lastSync isOnline \}/)
 })
 
 // ── Empty / undefined properties → default set ────────────────────────
 
 test('undefined properties falls back to default set', async () => {
-  await getVehicleState('test-id', undefined)
+  await getVehicleState(session, 'test-id', undefined)
   // Spot-check a few default fields
   assert.match(capturedQuery, /batteryLevel \{ timeStamp value \}/)
   assert.match(capturedQuery, /gnssLocation/)
@@ -75,7 +77,7 @@ test('undefined properties falls back to default set', async () => {
 // ── props resolution (mcp-server.js logic) ────────────────────────────
 
 test('empty properties array resolves to undefined (uses defaults)', () => {
-  const resolve = (properties) => (properties?.length ? new Set(properties) : undefined)
+  const resolve = (properties?: string[]) => (properties?.length ? new Set(properties) : undefined)
   assert.equal(resolve([]), undefined, '[] should resolve to undefined')
   assert.equal(resolve(undefined), undefined, 'undefined should resolve to undefined')
   const result = resolve(['batteryLevel'])
@@ -86,7 +88,7 @@ test('empty properties array resolves to undefined (uses defaults)', () => {
 // ── Query structure ───────────────────────────────────────────────────
 
 test('query uses correct operation name and variable', async () => {
-  await getVehicleState('test-id')
+  await getVehicleState(session, 'test-id')
   assert.match(capturedQuery, /query GetVehicleState\(\$vehicleID: String!\)/)
   assert.match(capturedQuery, /vehicleState\(id: \$vehicleID\)/)
 })
@@ -94,7 +96,7 @@ test('query uses correct operation name and variable', async () => {
 // ── Oct 2026 discovery ────────────────────────────────────────────────
 
 test('default set includes fields confirmed in Oct 2026', async () => {
-  await getVehicleState('test-id')
+  await getVehicleState(session, 'test-id')
   for (const field of [
     'chargingDisabledAC',
     'chargingDisabledAll',
@@ -109,7 +111,7 @@ test('default set includes fields confirmed in Oct 2026', async () => {
 })
 
 test('default set excludes subscription-only fields that HTTP rejects', async () => {
-  await getVehicleState('test-id')
+  await getVehicleState(session, 'test-id')
   for (const field of [
     'activeDriverName',
     'chargingDisabledACFaultState',
@@ -123,7 +125,7 @@ test('default set excludes subscription-only fields that HTTP rejects', async ()
 })
 
 test('getUserInfo requests build configuration and assembly date', async () => {
-  await getUserInfo()
+  await getUserInfo(session)
   assert.match(capturedQuery, /actualGeneralAssemblyDate/)
   for (const option of [
     'trimOption',

@@ -1,6 +1,6 @@
 ---
 name: rivian-api
-description: This skill should be used when working with the Rivian GraphQL API — adding new queries, updating vehicle state properties, implementing MCP tools, debugging API errors, or asking about available vehicle data fields. Apply when touching lib/rivian-api.js, lib/format.js, mcp-server.js, or any Rivian API interaction.
+description: This skill should be used when working with the Rivian GraphQL API — adding new queries, updating vehicle state properties, implementing MCP tools, debugging API errors, or asking about available vehicle data fields. Apply when touching src/rivian-api.ts, src/format.ts, src/mcp-server.ts, or any Rivian API interaction.
 ---
 
 # Rivian API Skill
@@ -16,11 +16,11 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 
 | File                | Purpose                                             |
 | ------------------- | --------------------------------------------------- |
-| `lib/rivian-api.js` | All API interaction — session state, queries, auth  |
-| `lib/format.js`     | Human-readable output for MCP/CLI                   |
-| `lib/session.js`    | Session persistence to `~/.rivian-mcp/session.json` |
-| `mcp-server.js`     | MCP server — tool registration and session restore  |
-| `cli.js`            | CLI — `ota` and `stats` commands                    |
+| `src/rivian-api.ts` | All API interaction — session state, queries, auth  |
+| `src/format.ts`     | Human-readable output for MCP/CLI                   |
+| `src/session.ts`    | Session persistence to `~/.rivian-mcp/session.json` |
+| `src/mcp-server.ts`     | MCP server — tool registration and session restore  |
+| `src/cli.ts`            | CLI — `ota` and `stats` commands                    |
 
 ## API Endpoints
 
@@ -35,13 +35,13 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 
 ## Authentication Flow
 
-1. `createCsrfToken()` → gets `csrfToken` + `appSessionToken`
-2. `login(email, password)` → `{ mfa: true|false }`
-   - `mfa: true` → OTP sent → `validateOtp(email, code)`
+1. `createCsrfToken(session)` → gets `csrfToken` + `appSessionToken`
+2. `login(session, email, password)` → `{ mfa: true|false }`
+   - `mfa: true` → OTP sent → `validateOtp(session, email, code)`
 3. All queries require `A-Sess` + `U-Sess` headers
-4. Session persists to `~/.rivian-mcp/session.json`, valid 90 days (`SESSION_MAX_AGE_MS` in `lib/session.js`)
-5. `exportSession()` / `restoreSession(saved)` — serialize/restore state
-6. `isAuthenticated()` / `needsOtp()` — check status
+4. Session persists to `~/.rivian-mcp/session.json`, valid 90 days (`SESSION_MAX_AGE_MS` in `src/session.ts`)
+5. `exportSession(session)` / `restoreSession(session, saved)` — serialize/restore state
+6. `isAuthenticated(session)` / `needsOtp(session)` — check status
 
 ## Implemented Functions
 
@@ -100,30 +100,26 @@ Returns `invitedUsers` (provisioned + unprovisioned) with enrolled devices.
 ## Adding a New Vehicle State Property
 
 1. Verify the field name exists — check `references/vehicle-state-properties.md` first. The API silently rejects unknown fields with `GRAPHQL_VALIDATION_FAILED`.
-2. Add to `DEFAULT_VEHICLE_STATE_PROPERTIES` in `lib/rivian-api.js`.
+2. Add to `DEFAULT_VEHICLE_STATE_PROPERTIES` in `src/rivian-api.ts`.
 3. If the field needs a non-standard fragment (not `{ timeStamp value }`), add it to `TEMPLATE_MAP`.
-4. Add formatting in `lib/format.js` — either in an existing section or a new one. Mark fields as `printed` to prevent them falling into the "Other" catch-all.
+4. Add formatting in `src/format.ts` — either in an existing section or a new one. Mark fields as `printed` to prevent them falling into the "Other" catch-all.
 
 ## Adding a New MCP Tool
 
-1. Add an exported function to `lib/rivian-api.js`.
-2. Add a `format*` function to `lib/format.js`.
-3. Register with `server.tool(name, description, schema, handler)` in `mcp-server.js`.
-4. Handler pattern:
+1. Add an exported function to `src/rivian-api.ts`.
+2. Add a `format*` function to `src/format.ts`.
+3. Register with `server.registerTool(name, { description, inputSchema, annotations: READ_ONLY }, handler)` in `src/mcp-server.ts`. `inputSchema` is a `z.object(...)`.
+4. Handler pattern (`query` checks auth and turns errors into text):
 
-```js
-;async ({ param }) => {
-  try {
-    requireAuth()
+```ts
+({ param }) =>
+  query(async () => {
     const vehicleId = await resolveVehicleId()
-    return text(format.formatMyThing(await rivian.getMyThing(vehicleId)))
-  } catch (err) {
-    return text(err.message)
-  }
-}
+    return format.formatMyThing(await rivian.getMyThing(session, vehicleId))
+  })
 ```
 
-## format.js Patterns
+## format.ts Patterns
 
 `formatVehicleState` uses a `printed` Set to track which keys have been rendered, falling back to an "Other" section for any remainder. When adding a new section:
 
