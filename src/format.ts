@@ -1,15 +1,28 @@
-import { c, section, bar, kv, table, vehicleDiagram, tireDiagram, closureStatus } from './ui.js'
+import type {
+  ChargingSchedule,
+  DriversAndKeys,
+  LiveChargingSession,
+  OtaStatus,
+  SessionSummary,
+  StateValue,
+  UserInfo,
+  VehicleState,
+} from './rivian-api.ts'
+import { bar, c, closureStatus, kv, section, table, tireDiagram, vehicleDiagram } from './ui.ts'
 
-function fmt(n) {
+function fmt(n: unknown) {
   return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })
 }
 
-function isZeroish(val) {
+function isZeroish(val: unknown) {
   return val === 0 || val === '0' || val === '0.0.0' || val === '' || val === 'undefined'
 }
 
-export function formatUserInfo(user) {
-  const lines = [c.bold(`${user.firstName} ${user.lastName}`) + c.dim(` (${user.email})`), '']
+export function formatUserInfo(user: UserInfo) {
+  const lines: (string | null)[] = [
+    c.bold(`${user.firstName} ${user.lastName}`) + c.dim(` (${user.email})`),
+    '',
+  ]
 
   if (!user.vehicles?.length) {
     lines.push(c.dim('No vehicles on this account.'))
@@ -24,7 +37,7 @@ export function formatUserInfo(user) {
 
     const config = car.mobileConfiguration
     if (config) {
-      const options = [
+      const options: [string, { optionName: string | null } | null | undefined][] = [
         ['Trim', config.trimOption],
         ['Drive', config.driveSystemOption],
         ['Exterior', config.exteriorColorOption],
@@ -58,22 +71,25 @@ export function formatUserInfo(user) {
 }
 
 // SNA = the vehicle has no valid estimate, so the minutes value is stale
-function formatTimeToFull(minutes, validity) {
-  if (!(minutes > 0) || validity === 'SNA') return null
-  const hours = Math.floor(minutes / 60)
-  const mins = minutes % 60
+function formatTimeToFull(minutes: StateValue, validity: StateValue) {
+  if (!((minutes as number) > 0) || validity === 'SNA') return null
+  const total = minutes as number
+  const hours = Math.floor(total / 60)
+  const mins = total % 60
   return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
 }
 
-export function formatVehicleState(state) {
-  const lines = []
-  const printed = new Set()
+export function formatVehicleState(state: VehicleState) {
+  const lines: (string | null)[] = []
+  const printed = new Set<string>()
 
-  function v(key) {
+  function v(key: string): StateValue {
     return state[key]?.value ?? null
   }
+  const num = (key: string) => v(key) as number | null
+  const str = (key: string) => v(key) as string | null
 
-  function print(label, key, suffix = '') {
+  function print(label: string, key: string, suffix = '') {
     if (!(key in state)) return
     printed.add(key)
     const value = v(key)
@@ -84,13 +100,13 @@ export function formatVehicleState(state) {
   // Battery & Range
   if ('batteryLevel' in state || 'distanceToEmpty' in state) {
     lines.push(section('Battery & Range'))
-    const level = v('batteryLevel')
+    const level = num('batteryLevel')
     const limit = v('batteryLimit')
     if (level !== null) {
       printed.add('batteryLevel')
       const rounded = Math.round(level)
       const gauge = bar(rounded)
-      lines.push(`  ${gauge}  ${c.bold(rounded + '%')}`)
+      lines.push(`  ${gauge}  ${c.bold(`${rounded}%`)}`)
     }
     if (limit !== null) {
       printed.add('batteryLimit')
@@ -104,7 +120,7 @@ export function formatVehicleState(state) {
     }
     if ('vehicleMileage' in state) {
       printed.add('vehicleMileage')
-      const raw = v('vehicleMileage')
+      const raw = num('vehicleMileage')
       // API returns meters — convert to km for display
       if (raw !== null) lines.push(kv('Odometer', fmt(raw / 1000), ' km'))
     }
@@ -127,7 +143,7 @@ export function formatVehicleState(state) {
   // Charging
   if ('chargerStatus' in state || 'chargerState' in state) {
     lines.push(section('Charging'))
-    const status = v('chargerStatus')
+    const status = str('chargerStatus')
     if (status) {
       printed.add('chargerStatus')
       const color = status.toLowerCase().includes('charg') ? c.green : c.dim
@@ -152,8 +168,13 @@ export function formatVehicleState(state) {
 
   // Doors — vehicle diagram
   const doorPositions = ['FrontLeft', 'FrontRight', 'RearLeft', 'RearRight']
-  const doorData = {}
-  const posMap = { FrontLeft: 'fl', FrontRight: 'fr', RearLeft: 'rl', RearRight: 'rr' }
+  const doorData: Parameters<typeof vehicleDiagram>[0] = {}
+  const posMap: Record<string, 'fl' | 'fr' | 'rl' | 'rr'> = {
+    FrontLeft: 'fl',
+    FrontRight: 'fr',
+    RearLeft: 'rl',
+    RearRight: 'rr',
+  }
   let hasDoors = false
   for (const pos of doorPositions) {
     const closedKey = `door${pos}Closed`
@@ -173,7 +194,7 @@ export function formatVehicleState(state) {
 
   // Closures
   const closures = ['Frunk', 'Liftgate', 'Tailgate', 'Tonneau', 'SideBinLeft', 'SideBinRight']
-  const closureLines = []
+  const closureLines: (string | null)[] = []
   for (const name of closures) {
     const closedKey = `closure${name}Closed`
     const lockedKey = `closure${name}Locked`
@@ -194,7 +215,7 @@ export function formatVehicleState(state) {
   }
 
   // Windows (with calibration status from new fields)
-  const windowLines = []
+  const windowLines: (string | null)[] = []
   for (const pos of doorPositions) {
     const closedKey = `window${pos}Closed`
     const calKey = `window${pos}Calibrated`
@@ -283,15 +304,15 @@ export function formatVehicleState(state) {
     RearLeft: 'rl',
     RearRight: 'rr',
   }
-  const tireData = {}
+  const tireData: Record<string, string | null> = {}
   let hasTires = false
-  const staleTires = []
+  const staleTires: string[] = []
   for (const [pos, key] of Object.entries(tirePositions)) {
     const stateKey = `tirePressureStatus${pos}`
     const validKey = `tirePressureStatusValid${pos}`
     if (stateKey in state) {
       printed.add(stateKey)
-      tireData[key] = v(stateKey)
+      tireData[key] = str(stateKey)
       hasTires = true
     }
     if (validKey in state) {
@@ -330,12 +351,8 @@ export function formatVehicleState(state) {
     }
 
     const availVer = v('otaAvailableVersion')
-    if (availVer && !isZeroish(availVer)) {
-      printed.add('otaAvailableVersion')
-      lines.push(kv('Available update', c.yellow(availVer)))
-    } else {
-      printed.add('otaAvailableVersion')
-    }
+    printed.add('otaAvailableVersion')
+    if (availVer && !isZeroish(availVer)) lines.push(kv('Available update', c.yellow(availVer)))
 
     if ('otaAvailableVersionYear' in state) {
       printed.add('otaAvailableVersionYear')
@@ -347,7 +364,7 @@ export function formatVehicleState(state) {
       if (yr && !isZeroish(yr)) lines.push(kv('Available build', c.dim(`${yr}.${wk}.${num ?? 0}`)))
     }
 
-    const otaStatus = v('otaStatus')
+    const otaStatus = str('otaStatus')
     if (otaStatus) {
       printed.add('otaStatus')
       const statusColor = otaStatus.toLowerCase() === 'idle' ? c.green : c.yellow
@@ -356,12 +373,12 @@ export function formatVehicleState(state) {
     print('Install status', 'otaCurrentStatus')
     print('Install ready', 'otaInstallReady')
 
-    const installProg = v('otaInstallProgress')
+    const installProg = num('otaInstallProgress')
     printed.add('otaInstallProgress')
     if (installProg !== null && installProg > 0) {
       lines.push(kv('Install', `${bar(installProg, 100, 15)} ${installProg}%`))
     }
-    const dlProg = v('otaDownloadProgress')
+    const dlProg = num('otaDownloadProgress')
     printed.add('otaDownloadProgress')
     if (dlProg !== null && dlProg > 0) {
       lines.push(kv('Download', `${bar(dlProg, 100, 15)} ${dlProg}%`))
@@ -408,13 +425,9 @@ export function formatVehicleState(state) {
     lines.push(section('Drive'))
     print('Drive mode', 'driveMode')
     print('Gear', 'gearStatus')
-    const speed = v('gnssSpeed')
-    if (speed !== null && speed > 0) {
-      printed.add('gnssSpeed')
-      lines.push(kv('Speed', fmt(speed)))
-    } else {
-      printed.add('gnssSpeed')
-    }
+    const speed = num('gnssSpeed')
+    printed.add('gnssSpeed')
+    if (speed !== null && speed > 0) lines.push(kv('Speed', fmt(speed)))
     print('Service mode', 'serviceMode')
     print('Car wash mode', 'carWashMode')
     lines.push('')
@@ -441,19 +454,15 @@ export function formatVehicleState(state) {
     const btmOc = v('btmOcHardwareFailureStatus')
     printed.add('btmOcHardwareFailureStatus')
     if (btmOc && btmOc !== 'dtc_not_set') lines.push(kv('BTM hardware', c.yellow(btmOc)))
-    const accelCold = v('limitedAccelCold')
+    const accelCold = num('limitedAccelCold')
+    printed.add('limitedAccelCold')
     if (accelCold !== null && accelCold > 0) {
-      printed.add('limitedAccelCold')
       lines.push(kv('Accel limited (cold)', c.yellow(`${accelCold}%`)))
-    } else {
-      printed.add('limitedAccelCold')
     }
-    const regenCold = v('limitedRegenCold')
+    const regenCold = num('limitedRegenCold')
+    printed.add('limitedRegenCold')
     if (regenCold !== null && regenCold > 0) {
-      printed.add('limitedRegenCold')
       lines.push(kv('Regen limited (cold)', c.yellow(`${regenCold}%`)))
-    } else {
-      printed.add('limitedRegenCold')
     }
     lines.push('')
   }
@@ -487,7 +496,7 @@ export function formatVehicleState(state) {
     printed.add('gnssBearing')
     const loc = state.gnssLocation
     const alt = state.gnssAltitude?.value
-    const bearing = v('gnssBearing')
+    const bearing = num('gnssBearing')
     if (loc?.latitude && loc?.longitude) {
       lines.push(section('Location'))
       lines.push(`  ${c.dim('📍')} ${loc.latitude}, ${loc.longitude}`)
@@ -507,7 +516,7 @@ export function formatVehicleState(state) {
   }
 
   // Remaining
-  const remaining = []
+  const remaining: (string | null)[] = []
   for (const [key, entry] of Object.entries(state)) {
     if (printed.has(key)) continue
     const value = entry?.value ?? entry
@@ -526,8 +535,8 @@ export function formatVehicleState(state) {
     .trim()
 }
 
-export function formatOTAStatus(ota) {
-  const lines = []
+export function formatOTAStatus(ota: OtaStatus) {
+  const lines: (string | null)[] = []
 
   lines.push(section('Software Update'))
   lines.push('')
@@ -560,19 +569,22 @@ export function formatOTAStatus(ota) {
   return lines.filter((l) => l !== null).join('\n')
 }
 
-export function formatChargingSession(data, state = null) {
+export function formatChargingSession(
+  data: LiveChargingSession | null,
+  state: VehicleState | null = null,
+) {
   if (!data) return formatChargingState(state)
 
-  const lines = [section('Charging Session'), '']
+  const lines: (string | null)[] = [section('Charging Session'), '']
 
-  const add = (label, entry, suffix = '') => {
+  const add = (label: string, entry: { value: unknown } | null | undefined, suffix = '') => {
     const value = entry?.value
     if (value !== undefined && value !== null) lines.push(kv(label, value, suffix))
   }
 
   const soc = data.soc?.value
   if (soc !== undefined && soc !== null) {
-    lines.push(`  ${bar(soc)}  ${c.bold(soc + '%')}`)
+    lines.push(`  ${bar(soc)}  ${c.bold(`${soc}%`)}`)
   }
   add('Power', data.power, ' kW')
   add('Range added', data.rangeAddedThisSession, ' miles')
@@ -599,13 +611,13 @@ export function formatChargingSession(data, state = null) {
 }
 
 // Fallback when the live session is empty: the vehicle still reports the charge
-function formatChargingState(state) {
-  const v = (key) => state?.[key]?.value ?? null
+function formatChargingState(state: VehicleState | null) {
+  const v = (key: string) => state?.[key]?.value ?? null
   if (v('chargerState') !== 'charging_active') return c.dim('No active charging session.')
 
-  const lines = [section('Charging Session'), '']
-  const level = v('batteryLevel')
-  if (level !== null) lines.push(`  ${bar(Math.round(level))}  ${c.bold(Math.round(level) + '%')}`)
+  const lines: (string | null)[] = [section('Charging Session'), '']
+  const level = v('batteryLevel') as number | null
+  if (level !== null) lines.push(`  ${bar(Math.round(level))}  ${c.bold(`${Math.round(level)}%`)}`)
   if (v('batteryLimit') !== null) lines.push(kv('Charge limit', v('batteryLimit'), '%'))
   lines.push(kv('Charger state', c.green('charging_active')))
 
@@ -619,7 +631,10 @@ function formatChargingState(state) {
   return lines.join('\n')
 }
 
-export function formatChargingHistory(sessions, limit = Infinity) {
+// The fields formatChargingHistory reads
+type HistoryRow = Pick<SessionSummary, 'startInstant' | 'endInstant'> & Partial<SessionSummary>
+
+export function formatChargingHistory(sessions: HistoryRow[] | null | undefined, limit = Infinity) {
   if (sessions === null || sessions === undefined)
     return c.yellow(
       'No charging history returned. Your session may have expired — try logging in again.',
@@ -632,11 +647,11 @@ export function formatChargingHistory(sessions, limit = Infinity) {
     sessions.length < total
       ? `Charging History (newest ${sessions.length} of ${total} sessions)`
       : `Charging History (${total} sessions)`
-  const lines = [section(heading), '']
+  const lines: (string | null)[] = [section(heading), '']
 
   const headers = ['Date', 'Time', 'Duration', 'Energy', 'Cost']
   const colWidths = [14, 22, 10, 12, 10]
-  const rows = []
+  const rows: string[][] = []
 
   for (const s of sessions) {
     const start = new Date(s.startInstant)
@@ -648,7 +663,7 @@ export function formatChargingHistory(sessions, limit = Infinity) {
     })
     const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    const durationMs = end - start
+    const durationMs = end.getTime() - start.getTime()
     const durationMin = Math.round(durationMs / 60000)
     const hours = Math.floor(durationMin / 60)
     const mins = durationMin % 60
@@ -689,11 +704,11 @@ export function formatChargingHistory(sessions, limit = Infinity) {
     .trim()
 }
 
-export function formatChargingSchedule(data) {
+export function formatChargingSchedule(data: ChargingSchedule | null | undefined) {
   const schedules = data?.chargingSchedules
   if (!schedules?.length) return c.dim('No charging schedules configured.')
 
-  const lines = [section('Charging Schedules'), '']
+  const lines: (string | null)[] = [section('Charging Schedules'), '']
 
   for (const s of schedules) {
     const startHour = Math.floor(s.startTime / 60)
@@ -702,7 +717,7 @@ export function formatChargingSchedule(data) {
     const endHour = Math.floor(endMinutes / 60) % 24
     const endMin = endMinutes % 60
 
-    const fmt = (h, m) => {
+    const fmt = (h: number, m: number) => {
       const period = h >= 12 ? 'PM' : 'AM'
       const hour12 = h % 12 || 12
       return `${hour12}:${String(m).padStart(2, '0')} ${period}`
@@ -724,8 +739,8 @@ export function formatChargingSchedule(data) {
     .trim()
 }
 
-export function formatDriversAndKeys(data) {
-  const lines = []
+export function formatDriversAndKeys(data: DriversAndKeys) {
+  const lines: (string | null)[] = []
 
   if (data.vin) lines.push(section(`Vehicle ${data.vin}`))
   else lines.push(section('Drivers & Keys'))

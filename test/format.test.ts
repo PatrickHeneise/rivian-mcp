@@ -1,29 +1,30 @@
-import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
+import { stripVTControlCharacters } from 'node:util'
 import {
-  formatVehicleState,
-  formatOTAStatus,
   formatChargingHistory,
-  formatChargingSession,
   formatChargingSchedule,
+  formatChargingSession,
   formatDriversAndKeys,
+  formatOTAStatus,
   formatUserInfo,
-} from '../lib/format.js'
+  formatVehicleState,
+} from '../src/format.ts'
 import {
+  chargingSchedule,
+  chargingSession,
+  chargingSessions,
+  driversAndKeys,
+  otaDetails,
+  otaDetailsWithUpdate,
+  userInfo,
   vehicleState,
   vehicleStateCharging,
   vehicleStateOtaUpdate,
-  otaDetails,
-  otaDetailsWithUpdate,
-  chargingSessions,
-  chargingSchedule,
-  driversAndKeys,
-  chargingSession,
-  userInfo,
-} from './fixtures.js'
+} from './fixtures.ts'
 
 // Strip ANSI escape codes for text matching
-const strip = (s) => s.replace(/\u001B\[[0-9;]*m/g, '')
+const strip = stripVTControlCharacters
 
 // ── formatVehicleState ──────────────────────────────────────────────
 
