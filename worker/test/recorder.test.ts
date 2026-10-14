@@ -156,3 +156,36 @@ test('a power sample after the last move still closes the drive', async () => {
   await t.power(SLEEP, 1_020_000)
   assert.equal(t.internals.states.get('v')?.drive, null)
 })
+
+test('a point that arrives while a drive closes is not carried into a later drive', async () => {
+  const t = await setup()
+  await openDrive(t, 1_000, 6_000)
+  t.hooks.gate = new Gate()
+  const closing = t.power(SLEEP, 7_000)
+  const moving = t.gps(0.002, 12_000)
+  t.hooks.gate.open()
+  t.hooks.gate = null
+  await Promise.all([closing, moving])
+  await t.internals.flushAll()
+  const rows = t.sqlite.prepare('SELECT drive_id, ts FROM points ORDER BY ts').all()
+  assert.deepEqual(
+    rows.map((r) => [r.drive_id, r.ts]),
+    [
+      ['v-6000', 6_000],
+      ['v-12000', 12_000],
+    ],
+  )
+})
+
+test('points survive a rejected D1 batch', async () => {
+  const t = await setup()
+  await openDrive(t, 1_000, 6_000)
+  t.hooks.failNext = true
+  await assert.rejects(t.internals.flush('v'), /D1 unavailable/)
+  await t.internals.flush('v')
+  const rows = t.sqlite.prepare('SELECT ts FROM points').all()
+  assert.deepEqual(
+    rows.map((r) => r.ts),
+    [6_000],
+  )
+})

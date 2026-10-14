@@ -174,13 +174,22 @@ export class Recorder extends DurableObject<Env> {
   }
 
   /** Watchdog: closes stale drives, flushes points and reconnects when needed. */
-  async alarm(): Promise<void> {
+  alarm(): Promise<void> {
+    return this.serialize(() => this.watchdog())
+  }
+
+  private async watchdog(): Promise<void> {
     await this.loadStates()
     const now = Date.now()
-    for (const [vehicleId, state] of this.states) {
-      if (state.drive && shouldClose(state.drive, now, null)) await this.finishDrive(vehicleId)
+    try {
+      for (const [vehicleId, state] of this.states) {
+        if (state.drive && shouldClose(state.drive, now, null)) await this.finishDrive(vehicleId)
+      }
+      await this.flushAll()
+    } catch (error) {
+      // The points stay buffered; the next watchdog alarm writes them again.
+      await this.fail(error)
     }
-    await this.flushAll()
     await recoverConnection({
       session: () => this.session(),
       storedVehicleCount: async () => (await this.vehicles()).length,
@@ -264,7 +273,23 @@ export class Recorder extends DurableObject<Env> {
     )
   }
 
-  private async onMessage(ws: WebSocket, vehicles: Vehicle[], data: string): Promise<void> {
+  private queue: Promise<unknown> = Promise.resolve()
+
+  /**
+   * Runs tasks one at a time. A task that awaits D1, such as closing a drive, must not
+   * interleave with the next GPS point or the alarm, which would change the drive under it.
+   */
+  private serialize<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task)
+    this.queue = run.catch(() => {})
+    return run
+  }
+
+  private onMessage(ws: WebSocket, vehicles: Vehicle[], data: string): Promise<void> {
+    return this.serialize(() => this.handleMessage(ws, vehicles, data))
+  }
+
+  private async handleMessage(ws: WebSocket, vehicles: Vehicle[], data: string): Promise<void> {
     const message = JSON.parse(data) as {
       id?: string
       type: string
@@ -447,8 +472,8 @@ export class Recorder extends DurableObject<Env> {
   private async finishDrive(vehicleId: string): Promise<void> {
     const state = this.state(vehicleId)
     if (!state.drive) return
-    state.drive = close(state.drive, state.odometerKm)
-    await this.flush(vehicleId)
+    // The open drive stays in `state` until the write succeeds, so a failure can retry it.
+    await this.flush(vehicleId, close(state.drive, state.odometerKm))
     state.drive = null
     // The vehicle is parked where the drive ended, so the next trip starts from there.
     state.parkedAt = state.lastPoint
@@ -460,11 +485,9 @@ export class Recorder extends DurableObject<Env> {
   }
 
   /** Writes buffered points and the drive summary in one D1 batch. */
-  private async flush(vehicleId: string): Promise<void> {
-    const drive = this.states.get(vehicleId)?.drive
+  private async flush(vehicleId: string, drive = this.states.get(vehicleId)?.drive): Promise<void> {
     if (!drive) return
     const points = this.buffer.get(vehicleId) ?? []
-    this.buffer.set(vehicleId, [])
     const db = this.env.DB
     await db.batch([
       db
@@ -513,6 +536,8 @@ ON CONFLICT (id) DO UPDATE SET ended_at = excluded.ended_at, end_lat = excluded.
               .bind(drive.id),
           ]),
     ])
+    // Cleared only after the write: a rejected batch keeps the points for the next flush.
+    this.buffer.set(vehicleId, [])
     await this.ctx.storage.put(`drive:${vehicleId}`, drive)
   }
 }
