@@ -19,6 +19,8 @@ export interface LoginDeps {
   validateOtp(session: Session, email: string, code: string): Promise<void>
   /** Makes a verified session the recording session. Throws when `email` is not the owner. */
   activate(session: Session, email: string): Promise<void>
+  /** `RIVIAN_EMAIL`. Pending entries stored before they carried an email fall back to it. */
+  configuredEmail?: string
   newSession(): Session
   now(): number
   newId(): string
@@ -56,12 +58,15 @@ export async function finishPending(deps: LoginDeps, pendingId: string, code: st
   const key = `${PENDING_PREFIX}${pendingId}`
   let pending: PendingLogin | undefined
   try {
-    pending = await deps.store.get(key)
-    if (!pending || !isPendingFresh(pending, deps.now())) {
+    const stored = await deps.store.get(key)
+    // Entries stored by an earlier version have no email.
+    const email: string | undefined = stored?.email || deps.configuredEmail?.trim()
+    if (!stored || !email || !isPendingFresh(stored, deps.now())) {
       await deps.store.delete(key)
       throw new Error('This sign-in expired.')
     }
-    await deps.validateOtp(pending.session, pending.email, code)
+    pending = { ...stored, email }
+    await deps.validateOtp(pending.session, email, code)
     await deps.store.delete(key)
   } finally {
     deps.inFlight.delete(pendingId)

@@ -150,6 +150,28 @@ test('a refused activation leaves no pending entry to retry', async () => {
   assert.equal(pending.size, 0)
 })
 
+test('a pending entry stored without an email uses RIVIAN_EMAIL', async () => {
+  const { deps, pending, active } = setup()
+  deps.configuredEmail = ' owner@example.com '
+  pending.set(`${PENDING_PREFIX}old`, {
+    session: { ...emptySession(), otpToken: 'otp-a' },
+    createdAt: 0,
+  } as PendingLogin)
+  await finishPending(deps, 'old', 'code-for-otp-a')
+  assert.equal(active.email, 'owner@example.com')
+})
+
+test('a pending entry stored without an email expires when RIVIAN_EMAIL is unset', async () => {
+  const { deps, pending, active } = setup()
+  pending.set(`${PENDING_PREFIX}old`, {
+    session: { ...emptySession(), otpToken: 'otp-a' },
+    createdAt: 0,
+  } as PendingLogin)
+  await assert.rejects(finishPending(deps, 'old', 'code-for-otp-a'), /expired/)
+  assert.equal(pending.size, 0)
+  assert.equal(active.writes.length, 0)
+})
+
 test('the owner is RIVIAN_EMAIL when set, else the claimed email, else nobody', () => {
   assert.equal(ownerEmail(' Set@Example.com ', 'claimed@example.com'), 'Set@Example.com')
   assert.equal(ownerEmail(undefined, 'claimed@example.com'), 'claimed@example.com')
