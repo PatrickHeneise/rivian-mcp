@@ -114,7 +114,15 @@ Cloudflare deploys every change to your copy by itself.
 
 ## Remove it
 
-In the Cloudflare dashboard, open **Workers & Pages**, select **rivian-mcp**, then **Settings**, then **Delete**. Under **Storage & Databases**, delete the D1 database and the KV namespace whose names start with `rivian-mcp`. Remove the connector in Claude or ChatGPT. You can delete your copy on GitHub too.
+In the Cloudflare dashboard, open **Workers & Pages**, select **rivian-mcp**, then **Settings**, then **Delete**. Deleting the Worker also deletes the recorder's Durable Object and everything it stored. Under **Storage & Databases**, delete the D1 database and the KV namespace whose names start with `rivian-mcp`. Remove the connector in Claude or ChatGPT. You can delete your copy on GitHub too.
+
+### Deleting the Cloudflare account
+
+Cloudflare has no button to delete a single account. The only self-serve option is **My Profile**, then **Delete this user**, which deletes the user and every account that user owns. Before that, Cloudflare asks you to remove every domain, cancel every subscription and delete your payment method. The steps are in [Delete your Cloudflare account](https://developers.cloudflare.com/fundamentals/account/delete-account/).
+
+On an account that only ever ran a Worker, that step often fails with an error about active zones, even though the account has no domains. The Workers Free plan stays listed under **Billing**, then **Subscriptions**, with no way to cancel it, and blocks the deletion. There is no API for this. The only fix reported so far is a Cloudflare support ticket, and accounts on the Free plan can only open limited support cases.
+
+So do not create a throwaway Cloudflare account to try this project. Deploy into an account you keep and delete the Worker and its storage when you are done.
 
 ## Set it up from a terminal instead
 
