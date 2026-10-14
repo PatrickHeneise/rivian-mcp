@@ -8,7 +8,7 @@ It only reads from Rivian. It sends no commands to your vehicle and changes no s
 
 You need:
 
-- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
+- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account. Use one you keep. A Cloudflare account that has run a Worker often cannot be deleted afterwards. See [Remove it](docs/cloudflare.md#remove-it).
 - A free [GitHub](https://github.com/signup) account. The Deploy button asks you to connect it, and Cloudflare keeps your copy of the project there.
 - Your Rivian email and password, and the phone or email that gets Rivian's one-time code.
 
