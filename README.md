@@ -1,8 +1,8 @@
 # Rivian MCP
 
-Ask Claude or ChatGPT about your Rivian and every drive you take. You run it in your own Cloudflare account. Nothing is hosted for you, and your data stays with you.
+Ask Claude or ChatGPT about your Rivian and every drive you take. It runs in your own Cloudflare account, so your data stays with you.
 
-It only reads from Rivian. It sends no commands to your vehicle and changes no settings.
+It only reads from Rivian. It sends no commands to your vehicle and changes no settings. This project is unofficial and not affiliated with or endorsed by Rivian.
 
 ![Claude showing a recorded drive with its route on a map, distance, speed and elevation](docs/mcp-app.png)
 
@@ -13,7 +13,7 @@ You need:
 - A free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
 - Your Rivian email and password, and the phone or email that gets Rivian's one-time code.
 
-The Deploy button also asks you to connect a GitHub account. Cloudflare keeps your copy of the project there, and deploys it again when you update it.
+The Deploy button also asks you to connect a GitHub account. Cloudflare keeps your copy of the project there. To skip GitHub, [deploy from a terminal](docs/cloudflare.md#set-it-up-from-a-terminal-instead) with Node.js 24.
 
 ### 1. Deploy
 
@@ -58,29 +58,29 @@ ChatGPT works through its developer mode connectors. I have not tested it. See [
 - "Is there a software update available?"
 - "Are all the doors locked?"
 
-The full guide covers cost, updates, your data, and how to remove it: [docs/cloudflare.md](docs/cloudflare.md).
-
 ### Tools
 
-| Tool                           | What it does                                                         |
-| ------------------------------ | -------------------------------------------------------------------- |
-| `show_drive`                   | One drive as a card: route map, speed, energy and elevation charts   |
-| `show_stats`                   | Driving stats for a period: totals, efficiency, every route on a map |
-| `show_charging`                | Charging sessions with energy added, power and SoC curves            |
-| `list_drives`                  | Recorded drives, newest first                                        |
-| `get_drive`                    | One drive with its route as GeoJSON                                  |
-| `recorder_status`              | Whether the recorder is signed in and connected                      |
-| `rivian_get_user_info`         | Your account, vehicles and software versions                         |
-| `rivian_get_vehicle_state`     | Live status: battery, doors, tires, location, climate, OTA           |
-| `rivian_get_ota_status`        | Current and available software versions                              |
-| `rivian_get_charging_session`  | Active charging session                                              |
-| `rivian_get_charging_history`  | Past charging sessions: energy, cost, location                       |
-| `rivian_get_charging_schedule` | Your charging schedule                                               |
-| `rivian_get_drivers_and_keys`  | Drivers and their phone keys and key fobs                            |
+| Tool                           | What it does                                                        |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `show_drive`                   | One drive with its route map and speed, energy and elevation charts |
+| `show_stats`                   | Totals and efficiency for a period, with every route on one map     |
+| `show_charging`                | Charging sessions with energy added, power and battery level curves |
+| `list_drives`                  | Recorded drives, newest first                                       |
+| `get_drive`                    | One drive with its route as GeoJSON                                 |
+| `recorder_status`              | Whether the recorder is signed in and connected                     |
+| `rivian_get_user_info`         | Your account, vehicles and software versions                        |
+| `rivian_get_vehicle_state`     | Live battery, doors, tires, location, climate and OTA status        |
+| `rivian_get_ota_status`        | Current and available software versions                             |
+| `rivian_get_charging_session`  | Active charging session                                             |
+| `rivian_get_charging_history`  | Past charging sessions with energy, cost and location               |
+| `rivian_get_charging_schedule` | Your charging schedule                                              |
+| `rivian_get_drivers_and_keys`  | Drivers and their phone keys and key fobs                           |
+
+Cost, updates, where your data lives and how to remove it are in [docs/cloudflare.md](docs/cloudflare.md).
 
 ## Run it locally
 
-The npm package runs on your computer as a CLI or a local MCP server. It answers questions about your Rivian as it is now. It does not record drives, because it only runs while you use it.
+The npm package runs on your computer as a CLI or a local MCP server. It needs Node.js 24 or newer. It answers questions about your Rivian as it is now. It does not record drives, because it only runs while you use it.
 
 ### CLI
 
@@ -132,18 +132,11 @@ Add to `~/.claude.json` or your project's `.mcp.json`:
 
 Rivian asks for a one-time code on every new sign-in:
 
-1. Ask Claude: "Log in to Rivian".
+1. Ask Claude, "Log in to Rivian."
 2. Rivian sends a code to your phone or email.
-3. Tell Claude: "The code is 123456".
+3. Tell Claude, "The code is 123456."
 
 The local server adds `rivian_login` and `rivian_submit_otp` for this step. The CLI and the local server share the session in `~/.rivian-mcp/session.json`. It is reused for up to 90 days.
-
-## Requirements
-
-- Self-hosted: a Cloudflare account and a Rivian account with a vehicle.
-- Local: Node.js 24 or newer and a Rivian account with a vehicle.
-
-This project is unofficial. It is not affiliated with or endorsed by Rivian.
 
 ## Support
 
@@ -159,8 +152,6 @@ The Claude Code plugin teaches Claude this codebase and the Rivian API: confirme
 claude /plugin marketplace add PatrickHeneise/rivian-mcp
 claude /plugin install rivian-mcp@rivian-ai
 ```
-
-To deploy from a terminal instead of the Deploy button, see [Set it up from a terminal instead](docs/cloudflare.md#set-it-up-from-a-terminal-instead).
 
 ## References
 
