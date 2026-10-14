@@ -8,6 +8,7 @@ import {
   type OAuthHelpers,
 } from '@cloudflare/workers-oauth-provider'
 import { esc, merge } from './html.ts'
+import type { StartResult } from './logins.ts'
 
 /** The one scope this server grants. */
 export const SCOPE = 'mcp'
@@ -124,7 +125,7 @@ async function submitPassword(request: Request, env: Env, oauth: OAuthHelpers): 
     )
   }
   if (await throttled(request, env)) return tooManyAttempts()
-  let login: Awaited<ReturnType<ReturnType<typeof recorder>['startPendingLogin']>>
+  let login: StartResult
   try {
     login = await recorder(env).startPendingLogin(String(form.get('password') ?? ''))
   } catch (error) {
