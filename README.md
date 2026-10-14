@@ -8,25 +8,22 @@ It only reads from Rivian. It sends no commands to your vehicle and changes no s
 
 You need:
 
-- A free [GitHub](https://github.com/signup) account. You fork the project into it, and Cloudflare deploys from your fork.
 - A free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
+- A free [GitHub](https://github.com/signup) account. The Deploy button asks you to connect it, and Cloudflare keeps your copy of the project there.
 - Your Rivian email and password, and the phone or email that gets Rivian's one-time code.
 
 To skip GitHub, [deploy from a terminal](docs/cloudflare.md#set-it-up-from-a-terminal-instead) with Node.js 24.
 
-### 1. Fork the repo
+### 1. Deploy
 
-A fork is your own copy of the project. Open [zentered-studios/rivian-mcp](https://github.com/zentered-studios/rivian-mcp), select **Fork**, then **Create fork**.
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zentered-studios/rivian-mcp)
 
-### 2. Deploy your fork
+1. Select the button and sign in to Cloudflare.
+2. Connect your GitHub account when asked.
+3. Select **Create and deploy**.
+4. In the Worker's **Settings**, then **Build**, clear **Enable Preview Builds**.
 
-1. In the [Cloudflare dashboard](https://dash.cloudflare.com), open **Workers & Pages**. Select **Create application**, then **Get started** next to **Import a repository**.
-2. Connect GitHub and choose your `rivian-mcp` fork.
-3. In the advanced build settings, set **Deploy command** to `npm run deploy`.
-4. Select **Save and Deploy**.
-5. In the Worker's **Settings**, then **Build**, clear **Enable Preview Builds**.
-
-The steps in detail, with account sign-up, are in [docs/cloudflare.md](docs/cloudflare.md#step-2-deploy-your-fork).
+The steps in detail, with account sign-up, are in [docs/cloudflare.md](docs/cloudflare.md#step-1-deploy).
 
 The first Rivian account that signs in owns your copy. Connect Claude right after you deploy.
 
@@ -42,7 +39,7 @@ Your connector address is that address plus `/mcp`:
 https://rivian-mcp.<your-name>.workers.dev/mcp
 ```
 
-### 3. Connect Claude
+### 2. Connect Claude
 
 Works on claude.ai and in the Claude desktop and mobile apps.
 
