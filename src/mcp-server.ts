@@ -43,6 +43,8 @@ async function query(run: () => Promise<string>) {
   }
 }
 
+const READ_ONLY = { readOnlyHint: true, openWorldHint: true }
+
 // ── MCP Server ────────────────────────────────────────────────────────
 
 function createServer() {
@@ -58,6 +60,7 @@ function createServer() {
     {
       description:
         'Log in to your Rivian account. Rivian will send a verification code to your phone or email — use rivian_submit_otp to complete sign-in.',
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     async () => {
       const email = process.env.RIVIAN_EMAIL
@@ -92,6 +95,7 @@ function createServer() {
       description:
         'Complete Rivian sign-in with the verification code sent to your phone or email.',
       inputSchema: z.object({ otp_code: z.string().describe('The verification code') }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     async ({ otp_code }) => {
       const email = process.env.RIVIAN_EMAIL
@@ -122,6 +126,7 @@ function createServer() {
     {
       description:
         'Look up your Rivian account — your vehicles, software versions, and account details.',
+      annotations: READ_ONLY,
     },
     () => query(async () => format.formatUserInfo(await rivian.getUserInfo(session))),
   )
@@ -137,6 +142,7 @@ function createServer() {
           .optional()
           .describe('Specific properties to check. Leave empty for a full status report.'),
       }),
+      annotations: READ_ONLY,
     },
     ({ properties }) =>
       query(async () => {
@@ -151,6 +157,7 @@ function createServer() {
     {
       description:
         "Check for software updates — what version you're running and whether a new one is available.",
+      annotations: READ_ONLY,
     },
     () =>
       query(async () => {
@@ -164,6 +171,7 @@ function createServer() {
     {
       description:
         'Check on an active charging session — power, battery level, time remaining, and cost.',
+      annotations: READ_ONLY,
     },
     () =>
       query(async () => {
@@ -188,6 +196,7 @@ function createServer() {
           .optional()
           .describe('Number of newest sessions to show. Defaults to 25.'),
       }),
+      annotations: READ_ONLY,
     },
     ({ limit }) =>
       query(async () =>
@@ -200,6 +209,7 @@ function createServer() {
     {
       description:
         'See your charging schedule — what times and days your vehicle is set to charge.',
+      annotations: READ_ONLY,
     },
     () =>
       query(async () => {
@@ -212,6 +222,7 @@ function createServer() {
     'rivian_get_drivers_and_keys',
     {
       description: 'See who has access to your vehicle — drivers, phone keys, and key fobs.',
+      annotations: READ_ONLY,
     },
     () =>
       query(async () => {
