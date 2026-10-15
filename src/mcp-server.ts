@@ -5,7 +5,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { z } from 'zod'
 import * as rivian from './rivian-api.ts'
 import { loadSession, saveSession } from './session.ts'
-import { registerQueryTools, text } from './tools.ts'
+import { errorText, registerQueryTools, text } from './tools.ts'
 
 const session = rivian.emptySession()
 
@@ -50,12 +50,9 @@ function createServer() {
       const email = process.env.RIVIAN_EMAIL
       const password = process.env.RIVIAN_PASSWORD
       if (!email || !password) {
-        return {
-          ...text(
-            'Rivian credentials are not configured. Set RIVIAN_EMAIL and RIVIAN_PASSWORD in your MCP server settings.',
-          ),
-          isError: true,
-        }
+        return errorText(
+          'Rivian credentials are not configured. Set RIVIAN_EMAIL and RIVIAN_PASSWORD in your MCP server settings.',
+        )
       }
 
       try {
@@ -72,7 +69,7 @@ function createServer() {
 
         return text('Signed in to Rivian.')
       } catch (err) {
-        return { ...text(`Couldn't sign in: ${(err as Error).message}`), isError: true }
+        return errorText(`Couldn't sign in: ${(err as Error).message}`)
       }
     },
   )
@@ -88,11 +85,11 @@ function createServer() {
     async ({ otp_code }) => {
       const email = process.env.RIVIAN_EMAIL
       if (!email) {
-        return { ...text('RIVIAN_EMAIL is not configured.'), isError: true }
+        return errorText('RIVIAN_EMAIL is not configured.')
       }
 
       if (!rivian.needsOtp(session)) {
-        return { ...text('No verification is pending. Call rivian_login first.'), isError: true }
+        return errorText('No verification is pending. Call rivian_login first.')
       }
 
       try {
@@ -101,12 +98,9 @@ function createServer() {
         cachedVehicleId = null
         return text('Signed in to Rivian.')
       } catch (err) {
-        return {
-          ...text(
-            `Verification failed: ${(err as Error).message}. You may need to start over with rivian_login.`,
-          ),
-          isError: true,
-        }
+        return errorText(
+          `Verification failed: ${(err as Error).message}. You may need to start over with rivian_login.`,
+        )
       }
     },
   )

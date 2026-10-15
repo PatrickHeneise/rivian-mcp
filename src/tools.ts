@@ -17,13 +17,18 @@ export function text(str: string) {
   return { content: [{ type: 'text' as const, text: str }] }
 }
 
+/** A tool response that reports a failure to the client. */
+export function errorText(str: string) {
+  return { ...text(str), isError: true }
+}
+
 export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
   // Return query failures as MCP tool errors.
   const query = async (run: (session: rivian.Session) => Promise<string>) => {
     try {
       return text(await run(await ctx.session()))
     } catch (err) {
-      return { ...text((err as Error).message), isError: true }
+      return errorText((err as Error).message)
     }
   }
 
