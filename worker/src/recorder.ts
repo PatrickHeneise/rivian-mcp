@@ -154,14 +154,23 @@ export class Recorder extends DurableObject<Env> {
   /**
    * Stores a verified session and starts recording. Startup errors go to `lastError`.
    * With no owner yet, this sign-in claims the Worker. The owner is stored on every sign-in, so
-   * removing `RIVIAN_EMAIL` later keeps the account. Only storage calls sit between the read and
-   * the write, so the input gate keeps two sign-ins from both claiming it.
+   * removing `RIVIAN_EMAIL` later keeps the account. Activation shares the socket/alarm queue,
+   * so reconnects and another accepted login cannot overlap discovery or socket replacement.
    */
-  private async activate(session: Session, email: string): Promise<void> {
+  private activate(session: Session, email: string): Promise<void> {
+    return this.serialize(() => this.activateSession(session, email))
+  }
+
+  private async activateSession(session: Session, email: string): Promise<void> {
     const owner = await this.ownerEmail()
     if (owner && !sameEmail(owner, email)) {
       throw new Error('This server records a different Rivian account.')
     }
+    // Retire the previous socket before storing fresh credentials. Its late auth rejection
+    // must not clear this session, even if vehicle discovery fails and no new socket opens.
+    const previous = this.ws
+    this.ws = null
+    previous?.close(1000, 'Re-login')
     await this.ctx.storage.put('owner', email.trim().toLowerCase())
     await this.ctx.storage.put('session', session)
     try {
@@ -241,8 +250,6 @@ export class Recorder extends DurableObject<Env> {
     this.lastError = null
     this.backoffMs = 0
     this.retryAt = 0
-    this.ws?.close(1000, 'Re-login')
-    this.ws = null
     await this.openSocket()
     await this.scheduleAlarm()
     return vehicles
@@ -320,6 +327,7 @@ export class Recorder extends DurableObject<Env> {
   }
 
   private async handleMessage(ws: WebSocket, vehicles: Vehicle[], data: string): Promise<void> {
+    if (this.ws !== ws) return
     const message = JSON.parse(data) as {
       id?: string
       type: string
@@ -464,7 +472,11 @@ export class Recorder extends DurableObject<Env> {
     this.lastSamples.set(key, { ts, data })
   }
 
-  private async onClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+  private onClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+    return this.serialize(() => this.handleClose(ws, code, reason))
+  }
+
+  private async handleClose(ws: WebSocket, code: number, reason: string): Promise<void> {
     if (this.ws !== ws) return
     this.ws = null
     if (code === CLOSE_TTL_EXPIRED) {

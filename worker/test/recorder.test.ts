@@ -17,6 +17,9 @@ interface Internals {
   flushAll(): Promise<void>
   states: Map<string, { drive: { id: string; endedAt: number | null } | null }>
   alarm(): Promise<void>
+  activate(session: Session, email: string): Promise<void>
+  onClose(ws: unknown, code: number, reason: string): Promise<void>
+  ws: unknown
 }
 
 const VEHICLE = { id: 'v', name: null, model: 'R1S', modelYear: 2025 }
@@ -99,8 +102,11 @@ async function setup(email: string | null = 'owner@example.com') {
   const env = { DB: db, RIVIAN_EMAIL: email ?? undefined }
   const recorder = new Recorder(ctx as never, env as never)
   const internals = recorder as unknown as Internals
-  const send = (message: object) =>
-    internals.onMessage({ send() {}, close() {} }, [VEHICLE], JSON.stringify(message))
+  const socket = { send() {}, close() {} }
+  const send = (message: object) => {
+    internals.ws = socket
+    return internals.onMessage(socket, [VEHICLE], JSON.stringify(message))
+  }
   const gps = (lat: number, ts: number) =>
     send({
       id: 'state:v',
@@ -328,8 +334,10 @@ test('a restored drive ignores GPS replay older than its persisted progress', as
     { storage: t.storage, waitUntil() {} } as never,
     { DB: {} } as never,
   ) as unknown as Internals
+  const socket = { send() {} }
+  restarted.ws = socket
   await restarted.onMessage(
-    { send() {} },
+    socket,
     [VEHICLE],
     JSON.stringify({
       id: 'state:v',
@@ -348,4 +356,63 @@ test('a restored drive ignores GPS replay older than its persisted progress', as
     }),
   )
   assert.deepEqual(restarted.states.get('v')?.drive, before)
+})
+
+test('an old socket auth rejection cannot erase a freshly accepted login', async () => {
+  const t = await setup()
+  const oldSocket = { close() {} }
+  t.internals.ws = oldSocket
+  const discovery = new Gate()
+  globalThis.fetch = (async () => {
+    discovery.reached.resolve()
+    await discovery.promise
+    throw new Error('discovery offline')
+  }) as typeof fetch
+  const login = t.internals.activate(
+    { ...emptySession(), userSessionToken: 'fresh-token' },
+    'owner@example.com',
+  )
+  await discovery.reached.promise
+  const closed = t.internals.onClose(oldSocket, 4401, 'Expired')
+  discovery.open()
+  await Promise.all([login, closed])
+  assert.equal(((await t.storage.get('session')) as Session).userSessionToken, 'fresh-token')
+  assert.equal(t.internals.ws, null)
+})
+
+test('the watchdog waits for an in-progress session activation', async () => {
+  const t = await setup()
+  const discovery = new Gate()
+  let requests = 0
+  globalThis.fetch = (async () => {
+    requests++
+    discovery.reached.resolve()
+    await discovery.promise
+    throw new Error('discovery offline')
+  }) as typeof fetch
+  const login = t.internals.activate(
+    { ...emptySession(), userSessionToken: 'fresh-token' },
+    'owner@example.com',
+  )
+  await discovery.reached.promise
+  const alarm = t.internals.alarm()
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(requests, 1, 'the watchdog must not open a competing socket')
+  discovery.open()
+  await Promise.all([login, alarm])
+})
+
+test('messages queued from a replaced socket do not affect the current connection', async () => {
+  const t = await setup()
+  t.internals.ws = { send() {} }
+  await t.internals.onMessage(
+    { send() {} },
+    [VEHICLE],
+    JSON.stringify({
+      id: 'v',
+      type: 'error',
+      payload: { message: 'Old subscription rejected' },
+    }),
+  )
+  assert.equal((await t.recorder.status()).lastError, null)
 })
