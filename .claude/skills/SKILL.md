@@ -23,6 +23,7 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 | `src/tools.ts` | Live query tools shared by stdio and the Worker |
 | `worker/src/recorder.ts` | Durable Object recorder and live websocket subscriptions |
 | `src/cli.ts`            | CLI — `ota` and `stats` commands                    |
+| `src/prompt.ts` | Terminal-only masked password and OTP input |
 
 ## API Endpoints
 
@@ -34,6 +35,8 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 > Introspection is blocked on both endpoints. `/orders/graphql` and `/t2d/graphql` exist but are untested.
 >
 > **Discovery tip:** the charging endpoint returns Apollo `Did you mean "..."?` suggestions and full validation messages (unknown field, missing required argument with its type). Probe it with near-complete names to enumerate fields and arguments. The gateway masks every validation error as `Error in GraphQL validation`, so probe it one field per request.
+
+All HTTP requests have a 30-second timeout. Failed requests are not automatically retried, including authentication mutations.
 
 ## Authentication Flow
 
@@ -47,11 +50,15 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 
 ## Implemented Functions
 
-### `getUserInfo()`
+### `getUserInfo(session)`
 
-Returns `currentUser` with vehicles, including `vehicle.mobileConfiguration` (trim, drive system, exterior, interior, wheels) and `vehicle.actualGeneralAssemblyDate`. Extracts `vehicles[0].id` — the vehicle ID used in all subsequent queries (e.g. `01-246161849`). Not the VIN.
+Returns `currentUser` with vehicles, including `vehicle.mobileConfiguration` (trim, drive system, exterior, interior, wheels) and `vehicle.actualGeneralAssemblyDate`. The local CLI and stdio server select `vehicles[0].id` for single-vehicle queries; the Worker supplies its vehicle through `QueryContext`. The vehicle ID is not the VIN.
 
-### `getVehicleState(vehicleId, properties?)`
+### `getVehicles(session)`
+
+Returns the recorder’s compact vehicle list: `id`, `name`, `model` and `modelYear`.
+
+### `getVehicleState(session, vehicleId, properties?)`
 
 **Critical:** Uses `vehicleState(id: $vehicleID)` — variable is `vehicleID` (capital D), not `vehicleId`.
 
@@ -75,27 +82,31 @@ Pass a `Set<string>` to fetch specific properties; omit for the full default set
 
 **Units gotcha:** `vehicleMileage` is in **meters** (live `47393698` = 47,394 km) — divide by 1000 for km. `batteryLevel` has float noise (round for display). See `references/vehicle-state-properties.md` for per-field units.
 
-### `getOTAUpdateDetails(vehicleId)`
+### `getOTAUpdateDetails(session, vehicleId)`
 
 Returns `currentOTAUpdateDetails`, `availableOTAUpdateDetails`, and `vehicleState.otaStatus` via `getVehicle(id:)`.
 
-### `getLiveChargingSession(vehicleId)`
+### `getLiveChargingSession(session, vehicleId)`
 
 Queries `getLiveSessionHistory(vehicleId: ID!)` on the charging endpoint. `getLiveSessionData` was removed (rejected Oct 2026) and its fields moved to `getLiveSessionHistory`. The query returns an all-null object when not charging, and also during an active charge it does not track (live, Oct 10, 2026: `chargerState: charging_active`, every field `null`). The function returns `null` in both cases.
 
-### `getChargingState(vehicleId)`
+### `getChargingState(session, vehicleId)`
 
 Reads `batteryLevel`, `batteryLimit`, `timeToEndOfCharge`, `chargerState` and `chargingTimeEstimationValidity` from vehicle state. `rivian_get_charging_session` calls it when `getLiveChargingSession` returns `null`, and `formatChargingSession(null, state)` shows the charge when `chargerState` is `charging_active`.
 
-### `getChargingHistory(vehicleId)`
+### `getChargingHistory(session, vehicleId)`
 
 Queries `getCompletedSessionSummariesV2(vehicleId: String!, pageSize: Int, searchAfter: String)` and follows `pageInfo.nextCursor` (max `pageSize` 100, no fixed page cap; repeated or missing continuation cursors are errors). Maps each item to the legacy flat shape (`startInstant`, `totalEnergyKwh`, `rangeAddedKm`, `vendor`, `city`, `paidTotal`, ...). The v1 `getCompletedSessionSummaries` still validates but returns `[]` (Oct 2026).
 
-### `getChargingSchedule(vehicleId)`
+### `getAllChargingHistory(session)`
+
+Fetches charging history for every vehicle on the account and merges sessions newest first. If any vehicle history is unavailable, returns `null` rather than silently presenting a partial list.
+
+### `getChargingSchedule(session, vehicleId)`
 
 Returns `chargingSchedules` array from `getVehicle`.
 
-### `getDriversAndKeys(vehicleId)`
+### `getDriversAndKeys(session, vehicleId)`
 
 Returns `invitedUsers` (provisioned + unprovisioned) with enrolled devices.
 
