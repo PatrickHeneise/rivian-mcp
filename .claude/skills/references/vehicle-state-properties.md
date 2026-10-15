@@ -512,7 +512,7 @@ Four read-only probe rounds found no assistant, chat, conversation, or intellige
 
 **Probe conditions:**
 - Introspection is disabled on every reachable endpoint (`__schema` / `__type` return `GRAPHQL_VALIDATION_FAILED`).
-- The gateway gives no "did you mean" suggestions. A misspelled field returns a generic `GRAPHQL_VALIDATION_FAILED`, same as a known-good field misspelled. Name-hint discovery does not work here.
+- The gateway gives no "did you mean" suggestions. A misspelled field returns a generic `GRAPHQL_VALIDATION_FAILED`. Name-hint discovery does not work here.
 - The gateway hides field-level detail: `{ currentUser { <missing> } }` returns the same generic error for a real-but-needs-subselection field and a nonexistent one. Only object fields can be told apart, by whether a subselection changes the error.
 
 **Endpoint paths on `rivian.com/api/gql/` (POST `{ __typename }`):**
