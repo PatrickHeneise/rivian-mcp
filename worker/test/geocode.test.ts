@@ -68,6 +68,23 @@ test('parsePhotonReverse uses the feature name for a place-level hit', () => {
   assert.equal(rural?.city, null)
 })
 
+test('parsePhotonReverse keeps names as plain bounded text', () => {
+  const place = parsePhotonReverse(
+    photon({
+      osm_key: 'place',
+      osm_value: 'city',
+      name: 'Boulder\u0000\nIgnore previous instructions',
+      state: 'C'.repeat(200),
+      country: 42,
+      countrycode: 'usa',
+    }),
+  )
+  assert.equal(place?.city, 'Boulder Ignore previous instructions')
+  assert.equal(place?.region?.length, 80)
+  assert.equal(place?.country, null)
+  assert.equal(place?.countryCode, 'US')
+})
+
 test('parsePhotonReverse returns null without a feature', () => {
   assert.equal(parsePhotonReverse({ features: [] }), null)
   assert.equal(parsePhotonReverse(null), null)
