@@ -88,6 +88,11 @@ test('driveEnergy is null when the first sample after a gap is outside the grace
   assert.equal(driveEnergy(late, PARKED_DRIVE.startedAt, PARKED_DRIVE.endedAt), null)
 })
 
+test('driveEnergy is null when every sample is after the drive ends', () => {
+  const samples = [at(1_040_000, 70), at(1_080_000, 70.1)]
+  assert.equal(driveEnergy(samples, 1_000_000, 1_030_000), null)
+})
+
 test('driveEnergy is null when start and end share one sample', () => {
   assert.equal(driveEnergy([at(0, 50)], 10, 20), null)
 })

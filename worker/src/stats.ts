@@ -77,7 +77,7 @@ export function driveEnergy(
   endedAt: number,
 ): DriveEnergy | null {
   const start = startSample(samples, startedAt)
-  if (!start) return null
+  if (!start || start.ts > endedAt) return null
   const end = lastAtOrBefore(samples, endedAt + SOC_LOOKAHEAD_MS)
   const pack = end?.packEnergyKwh ?? start.packEnergyKwh
   if (!end || end.ts <= start.ts || endedAt - end.ts > SOC_LOOKBACK_MS || pack === null) return null
