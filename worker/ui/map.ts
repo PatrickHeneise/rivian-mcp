@@ -21,6 +21,8 @@ export interface MapOptions {
   routes: Route[]
   /** Mark the start and end of the first route. */
   endpoints?: boolean
+  /** One position to mark, such as where the vehicle is parked. */
+  pin?: [number, number]
   height?: number
 }
 
@@ -28,7 +30,7 @@ export interface MapOptions {
 export function routeMap(opts: MapOptions): HTMLElement {
   const el = h('div', { class: 'map', style: `height:${opts.height ?? 340}px` })
   const routes = opts.routes.filter((r) => r.points.length > 0)
-  if (routes.length === 0) {
+  if (routes.length === 0 && !opts.pin) {
     el.append(h('p', { class: 'empty' }, 'No route recorded.'))
     return el
   }
@@ -66,7 +68,12 @@ export function routeMap(opts: MapOptions): HTMLElement {
       marker(pts[0], 'start', 'Start').addTo(map)
       marker(pts[pts.length - 1], 'end', 'End').addTo(map)
     }
-    map.fitBounds(L.featureGroup(lines).getBounds(), { padding: [24, 24], maxZoom: 16 })
+    if (opts.pin) marker(opts.pin, 'here', 'Vehicle').addTo(map)
+    if (lines.length) {
+      map.fitBounds(L.featureGroup(lines).getBounds(), { padding: [24, 24], maxZoom: 16 })
+    } else if (opts.pin) {
+      map.setView(opts.pin, 14)
+    }
     const observer = new ResizeObserver(() => map.invalidateSize())
     observer.observe(el)
     dispose = () => {
@@ -77,7 +84,7 @@ export function routeMap(opts: MapOptions): HTMLElement {
   return el
 }
 
-function marker(at: [number, number], kind: 'start' | 'end', label: string): L.Marker {
+function marker(at: [number, number], kind: 'start' | 'end' | 'here', label: string): L.Marker {
   return L.marker(at, {
     title: label,
     icon: L.divIcon({ className: `pin pin-${kind}`, iconSize: [18, 18], iconAnchor: [9, 9] }),

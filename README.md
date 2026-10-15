@@ -57,6 +57,7 @@ ChatGPT and Codex work too: [Connect ChatGPT](docs/cloudflare.md#connect-chatgpt
 ### What you can ask
 
 - "Show my last drive."
+- "Rivian status."
 - "List my drives this week."
 - "Show my stats for the last 30 days."
 - "Show my charging sessions."
@@ -73,6 +74,7 @@ Export your route, places and stats for [Roadbook](https://roadbook.us), an elec
 
 | Tool                           | What it does                                                        |
 | ------------------------------ | ------------------------------------------------------------------- |
+| `show_status`                  | Live dashboard: doors, locks, tires, battery, charging and updates  |
 | `show_drive`                   | One drive with its route map and speed, energy and elevation charts |
 | `show_stats`                   | Totals and efficiency for a period, with every route on one map     |
 | `show_charging`                | Charging sessions with energy added, power and battery level curves |

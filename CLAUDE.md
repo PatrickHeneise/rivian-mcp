@@ -107,7 +107,8 @@ Close code 4420 reconnects after 2 seconds. Codes 4401 and 4403 clear the sessio
 | `enrich.ts` | Add places, energy and elevation to drive rows using `geocode.ts` and `battery.ts`. |
 | `export.ts` | Build `roadbook.drive/1`, GeoJSON and GPX. The schema is in [docs/roadbook.md](docs/roadbook.md). |
 | `simplify.ts`, `timezone.ts` | Pure route and time helpers. |
-| `apps.ts` | Register `show_drive`, `show_stats` and `show_charging`. |
+| `apps.ts` | Register `show_status`, `show_drive`, `show_stats` and `show_charging`. |
+| `status.ts` | Build the `show_status` payload and text from live vehicle state. Pure. |
 | `worker/ui/` | Render the MCP Apps views. `npm run worker:build` bundles them into `worker/dist/app.html`. |
 
 ### Storage, tests and presentation

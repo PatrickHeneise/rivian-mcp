@@ -1,4 +1,4 @@
-// MCP Apps view: renders show_drive, show_stats and show_charging results in the host.
+// MCP Apps view: renders show_status, show_drive, show_stats and show_charging results in the host.
 // Opening a drive or switching a period calls the tools again through the host.
 
 import {
@@ -11,6 +11,7 @@ import {
 import type { AppView } from '../src/app-data.ts'
 import { h, teardown } from './dom.ts'
 import { defaultUnits, formatter, type Units } from './format.ts'
+import { statusScreen } from './status.ts'
 import { type Ctx, chargingScreen, driveScreen, statsScreen } from './views.ts'
 import './app.css'
 
@@ -71,16 +72,20 @@ function render(): void {
     setDays,
     back: stack.length > 1 ? back : undefined,
     toolbar: unitsToggle(fmt.units),
+    refresh,
+    openLink,
   }
   const screen =
     view.kind === 'drive'
       ? driveScreen(view, ctx)
       : view.kind === 'stats'
         ? statsScreen(view, ctx)
-        : chargingScreen(view, ctx, selectedSession, (i) => {
-            selectedSession = i
-            render()
-          })
+        : view.kind === 'status'
+          ? statusScreen(view, ctx)
+          : chargingScreen(view, ctx, selectedSession, (i) => {
+              selectedSession = i
+              render()
+            })
   root.replaceChildren(screen)
 }
 
@@ -100,6 +105,22 @@ async function setDays(kind: 'stats' | 'charging', days: number): Promise<void> 
   stack[stack.length - 1] = view
   selectedSession = 0
   render()
+}
+
+async function refresh(): Promise<void> {
+  const view = await call('show_status', {})
+  if (!view) return
+  stack[stack.length - 1] = view
+  render()
+}
+
+function openLink(url: string): void {
+  app.openLink({ url }).then(
+    (result) => {
+      if (result.isError) flash(`The host did not open ${url}`)
+    },
+    () => flash(`The host did not open ${url}`),
+  )
 }
 
 function back(): void {
@@ -173,7 +194,7 @@ function flash(message: string): void {
 
 function isView(value: unknown): value is AppView {
   const kind = (value as { kind?: unknown } | undefined)?.kind
-  return kind === 'drive' || kind === 'stats' || kind === 'charging'
+  return kind === 'drive' || kind === 'stats' || kind === 'charging' || kind === 'status'
 }
 
 function textOf(content: unknown): string {

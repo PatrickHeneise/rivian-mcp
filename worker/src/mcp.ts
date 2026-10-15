@@ -30,7 +30,7 @@ const MAX_EXPORT_DRIVES = 50
 /** list_drives hides drives shorter than this unless min_distance_km says otherwise. */
 const DEFAULT_MIN_DISTANCE_KM = MIN_DRIVE_M / 1000
 
-const recorder = (env: Env) => env.RECORDER.get(env.RECORDER.idFromName('default'))
+export const recorder = (env: Env) => env.RECORDER.get(env.RECORDER.idFromName('default'))
 export const km = (m: number) => `${(m / 1000).toFixed(1)} km`
 const kmh = (mps: number) => `${Math.round(mps * 3.6)} km/h`
 export const iso = utcIso

@@ -17,6 +17,10 @@ export interface Ctx {
   back?: () => void
   /** Header controls shared by every screen, such as the units toggle. */
   toolbar: HTMLElement
+  /** Read the vehicle status again. */
+  refresh: () => void
+  /** Ask the host to open a link. */
+  openLink: (url: string) => void
 }
 
 const PERIODS = [7, 30, 90, 365]
@@ -409,7 +413,7 @@ function dailyBars(view: StatsView, fmt: Formatter): Bar[] {
   return bars
 }
 
-function header(
+export function header(
   title: string,
   subtitle: string,
   ctx: Ctx,
@@ -448,7 +452,7 @@ function periods(current: number, onPick: (days: number) => void, options = PERI
   )
 }
 
-function tile(label: string, [value, unit]: [string, string], sub: string): HTMLElement {
+export function tile(label: string, [value, unit]: [string, string], sub: string): HTMLElement {
   return h(
     'div',
     { class: 'tile' },
@@ -458,7 +462,7 @@ function tile(label: string, [value, unit]: [string, string], sub: string): HTML
   )
 }
 
-function section(title: string, body: HTMLElement): HTMLElement {
+export function section(title: string, body: HTMLElement): HTMLElement {
   return h('section', {}, h('h2', {}, title), body)
 }
 
