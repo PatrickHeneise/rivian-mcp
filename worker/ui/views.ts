@@ -188,16 +188,19 @@ export function statsScreen(view: StatsView, ctx: Ctx): HTMLElement {
           (y, digits) => `${fmt.number(y, digits)} ${fmt.distance(0)[1]}`,
         ),
       ),
-      view.capacity.length > 1 &&
-        section(
-          'Pack capacity',
-          lineChart({
-            points: view.capacity,
-            formatX: (x) => fmt.date(x, { month: 'short', day: 'numeric' }),
-            formatY: (y, digits) => fmt.number(y, digits),
-            tooltip: (x, y) =>
-              `${fmt.date(x, { month: 'short', day: 'numeric' })} · ${fmt.number(y, 2)} kWh`,
-          }),
+      ...view.capacity
+        .filter((pack) => pack.points.length > 1)
+        .map((pack) =>
+          section(
+            view.capacity.length === 1 ? 'Pack capacity' : `Pack capacity · ${pack.vehicleId}`,
+            lineChart({
+              points: pack.points,
+              formatX: (x) => fmt.date(x, { month: 'short', day: 'numeric' }),
+              formatY: (y, digits) => fmt.number(y, digits),
+              tooltip: (x, y) =>
+                `${fmt.date(x, { month: 'short', day: 'numeric' })} · ${fmt.number(y, 2)} kWh`,
+            }),
+          ),
         ),
     ),
     section('Drives', driveTable(view, ctx)),

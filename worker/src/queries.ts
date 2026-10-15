@@ -26,8 +26,8 @@ FROM drives d CROSS JOIN charge_samples c ON c.vehicle_id = d.vehicle_id AND c.r
 WHERE d.started_at BETWEEN ?2 AND ?6
 ORDER BY c.ts`
 
-/** Binds: rvm, from, bucket ms. The last pack capacity reading of each bucket. */
-export const DAILY_CAPACITY_SQL = `SELECT MAX(ts) AS ts, json_extract(data, '$.packEnergyKwh') AS kwh
+/** Binds: rvm, from, bucket ms. The last pack capacity reading of each bucket, per vehicle. */
+export const DAILY_CAPACITY_SQL = `SELECT vehicle_id, MAX(ts) AS ts, json_extract(data, '$.packEnergyKwh') AS kwh
 FROM charge_samples
 WHERE rvm = ?1 AND ts >= ?2 AND json_extract(data, '$.packEnergyKwh') IS NOT NULL
-GROUP BY ts / CAST(?3 AS INTEGER) ORDER BY ts`
+GROUP BY vehicle_id, ts / CAST(?3 AS INTEGER) ORDER BY vehicle_id, ts`
