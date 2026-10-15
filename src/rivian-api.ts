@@ -266,11 +266,17 @@ export async function login(
   )
 
   if (data.login.otpToken) {
+    session.accessToken = ''
+    session.refreshToken = ''
+    session.userSessionToken = ''
     session.otpToken = data.login.otpToken
     return { mfa: true }
   }
 
-  session.accessToken = data.login.accessToken ?? ''
+  if (!data.login.accessToken) throw new Error('Login failed — Rivian returned no access token.')
+
+  session.otpToken = ''
+  session.accessToken = data.login.accessToken
   session.refreshToken = data.login.refreshToken ?? ''
   session.userSessionToken = data.login.userSessionToken ?? ''
   return { mfa: false }
@@ -548,7 +554,12 @@ export async function getChargingHistory(
     }
     items.push(...result.items)
     const cursor: string | null | undefined = result.pageInfo?.nextCursor
-    if (!result.pageInfo?.hasNextPage || !cursor) break
+    if (!result.pageInfo?.hasNextPage) break
+    if (!cursor) {
+      throw new Error(
+        `Charging history is missing a continuation cursor after ${items.length} sessions.`,
+      )
+    }
     // A repeated cursor would loop forever
     if (seenCursors.has(cursor)) {
       throw new Error(`Charging history returned a repeated cursor after ${items.length} sessions.`)

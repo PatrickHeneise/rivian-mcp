@@ -212,3 +212,13 @@ test('getChargingState reads only the charging fields from vehicle state', async
   }
   assert.doesNotMatch(requests[0].query, /gnssLocation/)
 })
+
+test('getChargingHistory rejects an incomplete page without a continuation cursor', async () => {
+  responses.push({
+    getCompletedSessionSummariesV2: {
+      items: [item('a')],
+      pageInfo: { nextCursor: null, hasNextPage: true },
+    },
+  })
+  await assert.rejects(getChargingHistory(session, 'v1'), /missing a continuation cursor/)
+})
