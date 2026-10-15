@@ -143,6 +143,8 @@ export interface StatusView {
   }
   /** All doors and closures with a lock signal report locked. Null without any lock signal. */
   locked: boolean | null
+  /** True when every door and closure reported a lock signal. */
+  lockComplete: boolean
   doors: Record<Corner, Opening>
   /** True when open. */
   windows: Record<Corner, boolean | null>

@@ -213,6 +213,7 @@ export function buildStatus(input: StatusInput): StatusView {
     .map((o) => o.locked)
     .filter((l) => l !== null)
   const locked = locks.length ? locks.every(Boolean) : null
+  const lockComplete = locks.length === Object.keys(doors).length + closures.length
 
   const socRaw = num('batteryLevel')
   const socPct = socRaw === null ? null : Math.round(socRaw * 10) / 10
@@ -278,6 +279,7 @@ export function buildStatus(input: StatusInput): StatusView {
       disabled: Boolean(num('chargingDisabledAll') || num('chargingDisabledAC')),
     },
     locked,
+    lockComplete,
     doors,
     windows,
     closures,
@@ -463,7 +465,13 @@ export function describeStatus(s: StatusView): string {
   const sw = s.software
   const lines = [
     `${title} (${s.vehicle.model}): ${ACTIVITY[s.activity]}${s.location?.place ? ` near ${s.location.place}` : ''}.`,
-    s.locked === null ? null : s.locked ? 'Locked.' : 'Not fully locked.',
+    s.locked === null
+      ? null
+      : !s.locked
+        ? 'Not fully locked.'
+        : s.lockComplete
+          ? 'Locked.'
+          : 'Locked, but not every door or closure reported a lock state.',
     [
       b.socPct !== null ? `Battery ${Math.round(b.socPct)}%` : null,
       b.limitPct !== null ? `limit ${b.limitPct}%` : null,

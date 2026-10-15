@@ -278,7 +278,7 @@ export function carDiagram(view: StatusView): SVGElement {
   }
 
   const roofCenter = (cabBack + (g.truck ? 9 : 16) + glassFront - 44) / 2
-  parts.push(lockBadge(view.locked, X(roofCenter), top + W / 2))
+  parts.push(lockBadge(view.locked, view.lockComplete, X(roofCenter), top + W / 2))
 
   return s(
     'svg',
@@ -351,8 +351,9 @@ function chargePort(state: ChargeState, x: number, y: number): SVGElement {
   )
 }
 
-function lockBadge(locked: boolean | null, cx: number, cy: number): SVGElement {
-  const state = locked === null ? 'unknown' : locked ? 'locked' : 'unlocked'
+function lockBadge(locked: boolean | null, complete: boolean, cx: number, cy: number): SVGElement {
+  const state =
+    locked === null || (locked && !complete) ? 'unknown' : locked ? 'locked' : 'unlocked'
   return s(
     'g',
     { class: `lock ${state}`, transform: `translate(${cx} ${cy})` },
@@ -366,7 +367,17 @@ function lockBadge(locked: boolean | null, cx: number, cy: number): SVGElement {
       transform: locked === false ? 'translate(-3 -2)' : undefined,
     }),
     s('rect', { class: 'lock-body', x: -8, y: -1, width: 16, height: 12, rx: 2.5 }),
-    s('title', {}, locked === null ? 'Lock state unknown' : locked ? 'Locked' : 'Not locked'),
+    s(
+      'title',
+      {},
+      locked === null
+        ? 'Lock state unknown'
+        : !locked
+          ? 'Not locked'
+          : complete
+            ? 'Locked'
+            : 'Locked, incomplete',
+    ),
   )
 }
 
@@ -377,6 +388,15 @@ function ariaLabel(view: StatusView): string {
       .map((c) => `${CORNER_NAMES[c].toLowerCase()} door`),
     ...view.closures.filter((c) => c.open).map((c) => c.label.toLowerCase()),
   ]
-  const lock = view.locked === null ? 'lock state unknown' : view.locked ? 'locked' : 'not locked'
-  return `${view.vehicle.model} diagram: ${lock}${open.length ? `, open: ${open.join(', ')}` : ', everything closed'}`
+  const lock =
+    view.locked === null
+      ? 'lock state unknown'
+      : !view.locked
+        ? 'not locked'
+        : view.lockComplete
+          ? 'locked'
+          : 'locked, incomplete'
+  const reported = Object.values(view.doors).every((d) => d.open !== null)
+  const closed = reported ? 'everything closed' : 'closed where reported'
+  return `${view.vehicle.model} diagram: ${lock}${open.length ? `, open: ${open.join(', ')}` : `, ${closed}`}`
 }

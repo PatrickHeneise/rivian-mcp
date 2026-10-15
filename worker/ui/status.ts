@@ -69,14 +69,18 @@ export function statusScreen(view: StatusView, ctx: Ctx): HTMLElement {
   )
 }
 
+/** Styling for the lock state. A lock reading with missing doors is not shown as fully locked. */
+export function lockClass(view: StatusView): 'unknown' | 'locked' | 'unlocked' {
+  if (view.locked === null || (view.locked && !view.lockComplete)) return 'unknown'
+  return view.locked ? 'locked' : 'unlocked'
+}
+
 function lockPanel(view: StatusView): HTMLElement {
   const unlocked = [
     ...CORNERS.filter(([c]) => view.doors[c].locked === false).map(([, n]) => `${n} door`),
     ...view.closures.filter((c) => c.locked === false).map((c) => c.label.toLowerCase()),
   ]
-  const lockCovered =
-    CORNERS.every(([c]) => view.doors[c].locked !== null) &&
-    view.closures.every((c) => c.locked !== null)
+  const lockCovered = view.lockComplete
   const headline =
     view.locked === null
       ? 'Lock state unknown'
@@ -168,7 +172,7 @@ function lockPanel(view: StatusView): HTMLElement {
     h(
       'div',
       {
-        class: `lock-head ${view.locked === null ? 'unknown' : view.locked ? 'locked' : 'unlocked'}`,
+        class: `lock-head ${lockClass(view)}`,
       },
       h('div', { class: 'lock-title' }, headline),
       h('div', { class: 'hint' }, detail),

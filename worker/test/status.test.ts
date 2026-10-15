@@ -267,6 +267,26 @@ test('a boolean brakeFluidLow raises the alert', () => {
   )
 })
 
+test('a lock reading from only some doors is not reported as fully locked', () => {
+  const partial = buildStatus(
+    input({
+      doorFrontRightLocked: null,
+      doorRearLeftLocked: null,
+      doorRearRightLocked: null,
+      closureFrunkLocked: null,
+      closureLiftgateLocked: null,
+    }),
+  )
+  assert.equal(partial.locked, true)
+  assert.equal(partial.lockComplete, false)
+  const text = describeStatus(partial)
+  assert.ok(!text.split('\n').includes('Locked.'))
+  assert.match(text, /not every door or closure reported/)
+  const full = buildStatus(input())
+  assert.equal(full.lockComplete, true)
+  assert.ok(describeStatus(full).split('\n').includes('Locked.'))
+})
+
 test('describeStatus gives the model the same facts', () => {
   const text = describeStatus(
     buildStatus(input({}, { parallaxBattery: { socPct: 48.6, rangeKm: 301 } })),
