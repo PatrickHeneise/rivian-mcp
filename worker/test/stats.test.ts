@@ -11,6 +11,7 @@ import {
   MIN_DRIVE_M,
   SESSION_GAP_MS,
   SOC_LOOKBACK_MS,
+  SOC_START_GRACE_MS,
 } from '../src/stats.ts'
 
 const PACK = 142.21
@@ -60,6 +61,31 @@ test('driveEnergy is null without a recent start sample', () => {
   assert.equal(driveEnergy(SAMPLES.slice(1), DRIVE.startedAt, DRIVE.endedAt), null)
   const stale = [at(DRIVE.startedAt - SOC_LOOKBACK_MS - 1, 48.7), ...SAMPLES.slice(1)]
   assert.equal(driveEnergy(stale, DRIVE.startedAt, DRIVE.endedAt), null)
+})
+
+// SoC samples around the 2026-10-14 21:15 drive: none in the 36 min parked before it.
+const PARKED_DRIVE = { startedAt: 1792012508892, endedAt: 1792014125866 }
+const PARKED_SAMPLES = [
+  at(1792010339977, 57.7),
+  at(1792012556972, 57.6),
+  at(1792013774624, 55.7),
+  at(1792014506077, 55.8),
+]
+
+test('driveEnergy takes the start SoC from a sample just after a parked gap', () => {
+  assert.deepEqual(driveEnergy(PARKED_SAMPLES, PARKED_DRIVE.startedAt, PARKED_DRIVE.endedAt), {
+    socStartPct: 57.6,
+    socEndPct: 55.7,
+    energyKwh: 2.7,
+  })
+})
+
+test('driveEnergy is null when the first sample after a gap is outside the grace window', () => {
+  const late = [
+    at(PARKED_DRIVE.startedAt + SOC_START_GRACE_MS + 1, 57.6),
+    ...PARKED_SAMPLES.slice(2),
+  ]
+  assert.equal(driveEnergy(late, PARKED_DRIVE.startedAt, PARKED_DRIVE.endedAt), null)
 })
 
 test('driveEnergy is null when start and end share one sample', () => {
