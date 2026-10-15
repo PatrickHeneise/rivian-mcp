@@ -1,16 +1,14 @@
 # Drive payload for Roadbook
 
-`export_drive` returns a JSON document designed for a Roadbook `import_drive` MCP tool. This page documents the exporter implemented in this repository. Importing requires a compatible Roadbook connector; its tool availability and deployed behavior are not verified here.
+`export_drive` returns the route, places and stats for a recorded drive. The `roadbook.drive/1` format is intended for Roadbook's `import_drive` tool. That importer has not been verified here.
 
 ## Flow
 
-1. `list_drives` (optional) to find the drive. Each line carries the place labels and local times, so no second lookup is needed to pick one.
-2. `export_drive` with the drive id, or with `since` and `until` for a batch. No arguments exports the latest completed, non-noise drive. An in-progress drive cannot be exported.
-3. Roadbook `import_drive` with the payload as `drive` (single) or `drives` (batch), plus an optional `tripId` to add to an existing trip and an optional `precision`.
+1. Call `list_drives` to choose a drive by its place labels and local times. Skip this step to export the latest drive.
+2. Call `export_drive` with the drive ID, or with `since` and `until` for a batch. With no arguments, it exports the latest completed drive that is not GPS noise. An in-progress drive cannot be exported.
+3. If your Roadbook connector supports `import_drive`, pass the single payload as `drive` or the batch array as `drives`. Check the importer's support for `tripId` and `precision` before using those options.
 
-The payload includes start and end coordinates and settlement-level labels, so a compatible importer does not need the user to type place names.
-
-The JSON below illustrates the fields, with a two-point route for brevity; it is not a measured recording. For complete tool arguments, see [examples](examples.md).
+This example uses a two-point route to show the fields. It is not a measured recording. See [examples](examples.md) for tool arguments.
 
 ## Schema `roadbook.drive/1`
 
@@ -56,7 +54,7 @@ The JSON below illustrates the fields, with a two-point route for brevity; it is
 
 | Field                           | Meaning                                                                                                                                 |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `source`                        | Where the drive comes from. `system` + `id` is the idempotency key: importing the same drive twice changes nothing.                     |
+| `source`                        | Source identifiers. A compatible importer uses `system` + `id` to prevent duplicate imports.                     |
 | `started_at`, `ended_at`        | UTC, ISO 8601, second precision.                                                                                                        |
 | `timezone`                      | IANA zone at the start point, from coordinates. Null only when the coordinate has no zone.                                              |
 | `started_at_local`, `ended_at_local` | ISO 8601 with the UTC offset of the zone at that end. `end_timezone` is present only when the drive ends in another zone.        |
@@ -71,7 +69,7 @@ The JSON below illustrates the fields, with a two-point route for brevity; it is
 | `quality.points_per_km`         | Fix density. Older recordings log 5 to 25 points on a drive that now gets 150 to 280.                                                   |
 | `quality.sparse`                | Under 3 points per km. The route is coarse; the distance is still the segment sum.                                                      |
 | `quality.noise`                 | GPS drift while parked (under 200 m, or under 1 m/s on average). `export_drive` leaves these out unless `include_noise` is set.          |
-| `quality.notes`                 | The same facts as sentences, for the agent to repeat to the user.                                                                       |
+| `quality.notes`                 | Quality warnings in plain text.                                                                       |
 
 ## Batch `roadbook.drives/1`
 
@@ -85,8 +83,8 @@ Drive starts and ends are often home or work.
 
 - Exported payloads include precise start and end coordinates. Rivian MCP does not redact those coordinates or control how another service stores them.
 - The intended Roadbook import contract uses private trips and settlement-level public stops. Verify the importer's current privacy settings and support for `precision: "city"` before sending a payload.
-- Labels on this side stop at the neighborhood, so a label pasted into a chat does not name a street.
-- The geocoder (Photon, komoot) receives the coordinate rounded to about 100 m and nothing else.
+- Exported place labels stop at the neighborhood; they omit street names.
+- Photon (komoot) receives coordinates rounded to about 100 m, without account or drive IDs.
 
 ## Other formats
 

@@ -23,7 +23,7 @@ async function ensureAuth() {
   const result = loadSession(session)
   if (result === true) return
 
-  // OTP was already initiated (e.g. via MCP login) — just complete it
+  // OTP was already initiated (e.g. via MCP login) - just complete it
   if (result === 'needs_otp') {
     const email = process.env.RIVIAN_EMAIL || (await prompt(`${c.dim('Rivian email:')} `))
     const code = await promptSecret(`${c.dim('Verification code:')} `)

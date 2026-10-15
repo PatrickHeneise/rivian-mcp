@@ -43,7 +43,7 @@ function createServer() {
     'rivian_login',
     {
       description:
-        'Log in to your Rivian account. Rivian will send a verification code to your phone or email — use rivian_submit_otp to complete sign-in.',
+        'Sign in to Rivian. If Rivian sends a verification code to your phone or email, submit it with rivian_submit_otp.',
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     async () => {
@@ -70,7 +70,7 @@ function createServer() {
           )
         }
 
-        return text('Signed in to Rivian successfully.')
+        return text('Signed in to Rivian.')
       } catch (err) {
         return { ...text(`Couldn't sign in: ${(err as Error).message}`), isError: true }
       }
@@ -92,14 +92,14 @@ function createServer() {
       }
 
       if (!rivian.needsOtp(session)) {
-        return { ...text('No pending verification. Start with rivian_login first.'), isError: true }
+        return { ...text('No verification is pending. Call rivian_login first.'), isError: true }
       }
 
       try {
         await rivian.validateOtp(session, email, otp_code)
         saveSession(session)
         cachedVehicleId = null
-        return text('Signed in to Rivian successfully.')
+        return text('Signed in to Rivian.')
       } catch (err) {
         return {
           ...text(

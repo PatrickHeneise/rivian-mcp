@@ -121,7 +121,7 @@ export function formatVehicleState(state: VehicleState) {
     if ('vehicleMileage' in state) {
       printed.add('vehicleMileage')
       const raw = num('vehicleMileage')
-      // API returns meters — convert to km for display
+      // API returns meters - convert to km for display
       if (raw !== null) lines.push(kv('Odometer', fmt(raw / 1000), ' km'))
     }
     print('Cell type', 'batteryCellType')
@@ -166,7 +166,7 @@ export function formatVehicleState(state: VehicleState) {
     lines.push('')
   }
 
-  // Doors — vehicle diagram
+  // Doors - vehicle diagram
   const doorPositions = ['FrontLeft', 'FrontRight', 'RearLeft', 'RearRight']
   const doorData: Parameters<typeof vehicleDiagram>[0] = {}
   const posMap: Record<string, 'fl' | 'fr' | 'rl' | 'rr'> = {
@@ -335,7 +335,7 @@ export function formatVehicleState(state: VehicleState) {
     lines.push('')
   }
 
-  // Software (OTA) — expanded with build numbers and install duration
+  // Software (OTA) - expanded with build numbers and install duration
   if ('otaCurrentVersion' in state || 'otaAvailableVersion' in state || 'otaStatus' in state) {
     lines.push(section('Software'))
     print('Current version', 'otaCurrentVersion')
@@ -560,7 +560,7 @@ export function formatOTAStatus(ota: OtaStatus) {
     }
   } else if (otaStatus && otaStatus.toLowerCase() !== 'idle') {
     lines.push('')
-    lines.push(`  ${c.yellow('⏳')} Flagged for update — details pending.`)
+    lines.push(`  ${c.yellow('⏳')} Flagged for update. Details pending.`)
   } else {
     lines.push('')
     lines.push(`  ${c.green('✓')} Software is up to date.`)
@@ -604,7 +604,7 @@ export function formatChargingSession(
   add('Charger state', data.vehicleChargerState)
 
   const loc = data.location
-  const place = [loc?.name, loc?.city, loc?.operator?.name].filter(Boolean).join(' — ')
+  const place = [loc?.name, loc?.city, loc?.operator?.name].filter(Boolean).join(' - ')
   if (place) lines.push(kv('Location', place))
 
   return lines.filter((l) => l !== null).join('\n')
@@ -636,9 +636,7 @@ type HistoryRow = Pick<SessionSummary, 'startInstant' | 'endInstant'> & Partial<
 
 export function formatChargingHistory(sessions: HistoryRow[] | null | undefined, limit = Infinity) {
   if (sessions === null || sessions === undefined)
-    return c.yellow(
-      'No charging history returned. Your session may have expired — try logging in again.',
-    )
+    return c.yellow('No charging history returned. Your session may have expired. Sign in again.')
   if (!sessions.length) return c.dim('No charging history found.')
 
   const total = sessions.length
@@ -669,9 +667,9 @@ export function formatChargingHistory(sessions: HistoryRow[] | null | undefined,
     const mins = durationMin % 60
     const duration = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
 
-    const energy = s.totalEnergyKwh != null ? `${s.totalEnergyKwh.toFixed(1)} kWh` : '—'
+    const energy = s.totalEnergyKwh != null ? `${s.totalEnergyKwh.toFixed(1)} kWh` : '-'
 
-    let cost = '—'
+    let cost = '-'
     if (s.paidTotal != null && s.paidTotal > 0) {
       const currency = s.currencyCode === 'USD' ? '$' : `${s.currencyCode} `
       cost = `${currency}${s.paidTotal.toFixed(2)}`
@@ -687,7 +685,7 @@ export function formatChargingHistory(sessions: HistoryRow[] | null | undefined,
   // Detail lines below table
   lines.push('')
   for (const s of sessions) {
-    const location = [s.city, s.vendor].filter(Boolean).join(' — ')
+    const location = [s.city, s.vendor].filter(Boolean).join(' - ')
     const chargerLabel = s.isHomeCharger
       ? 'Home'
       : s.chargerType || (s.isPublic ? 'Public' : 'Unknown')
@@ -761,7 +759,7 @@ export function formatDriversAndKeys(data: DriversAndKeys) {
           const name = d.deviceName || d.type
           const paired = d.isPaired ? c.green('paired') : c.red('not paired')
           const enabled = d.isEnabled ? c.green('enabled') : c.red('disabled')
-          lines.push(`    ${c.dim('└')} ${name} — ${paired}, ${enabled}`)
+          lines.push(`    ${c.dim('└')} ${name} - ${paired}, ${enabled}`)
         }
       }
     } else {

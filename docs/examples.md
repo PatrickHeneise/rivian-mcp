@@ -1,10 +1,10 @@
 # Tool-call examples
 
-These are MCP tool arguments, not HTTP request bodies. Use the tools through your connected AI app. Example ids are placeholders; replace them with an id returned by `list_drives`.
+Call these MCP tools through your connected AI app. The JSON blocks contain tool arguments. Replace `YOUR_DRIVE_ID` with an ID from `list_drives`.
 
 ## Live vehicle data (local and Cloudflare)
 
-`rivian_get_vehicle_state` uses the first vehicle on the account (there is no vehicle-selector argument):
+`rivian_get_vehicle_state` queries the first vehicle on the account. It has no vehicle-selector argument:
 
 ```json
 {}
@@ -40,7 +40,7 @@ Charging views infer sessions from rising state of charge. Energy is estimated f
 { "since": "2026-10-01", "until": "2026-10-14", "limit": 20 }
 ```
 
-Both dates are inclusive and filter the drive's start. The default minimum distance is 0.2 km; use `min_distance_km: 0` to inspect shorter recordings. Listing is newest first and capped at 100 per call; narrow the date range when necessary.
+Both dates are inclusive and filter the drive's start. The default minimum distance is 0.2 km; use `min_distance_km: 0` to inspect shorter recordings. Results are newest first, with at most 100 per call. Narrow the date range to find older drives.
 
 ## Export a completed drive
 
@@ -62,6 +62,8 @@ Export a date range as GeoJSON:
 { "since": "2026-10-01", "until": "2026-10-14", "format": "geojson", "max_points": 200 }
 ```
 
-Choose either `id` or dates; if both are supplied, `id` takes precedence. `max_points` is 2–2000, default 100, per drive. Ranges exclude unfinished drives and GPS noise by default and stop at 50 completed drives. A separate text block reports truncation, so the first content block remains valid JSON or GPX. Narrow the dates to retrieve the rest. Use `include_noise: true` only when you want those recordings too.
+Choose `id` or dates. If you supply both, `id` takes precedence. `max_points` accepts 2–2000 points per drive and defaults to 100.
 
-For Roadbook, leave `format` at `roadbook`. Pass the returned single object as Roadbook's `drive` argument, or the batch's `drives` array as its `drives` argument. Rivian MCP only exports; creating the trip is a separate call to Roadbook. See [the payload contract](roadbook.md).
+Date ranges exclude unfinished drives and GPS noise by default. Use `include_noise: true` to include noise. Each range stops at 50 completed drives. A separate text block reports that limit, leaving the first content block as valid JSON or GPX. Narrow the dates to retrieve the rest.
+
+For a compatible Roadbook connector, leave `format` at `roadbook`. Pass a single object as its `drive` argument, or the batch's `drives` array as its `drives` argument. The import is a separate call to Roadbook. See [the payload contract](roadbook.md).

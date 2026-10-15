@@ -1,8 +1,8 @@
 /**
- * Rivian API — READ ONLY
+ * Rivian API - READ ONLY
  *
  * Based on bretterer/rivian-python-client and rivian-api.kaedenb.org docs.
- * No write/post/patch mutations — only auth and queries.
+ * No write/post/patch mutations - only auth and queries.
  */
 
 const GRAPHQL_GATEWAY = 'https://rivian.com/api/gql/gateway/graphql'
@@ -274,7 +274,7 @@ export async function login(
     return { mfa: true }
   }
 
-  if (!data.login.accessToken) throw new Error('Login failed — Rivian returned no access token.')
+  if (!data.login.accessToken) throw new Error('Login failed. Rivian returned no access token.')
 
   session.otpToken = ''
   session.accessToken = data.login.accessToken
@@ -306,7 +306,9 @@ export async function validateOtp(session: Session, email: string, otpCode: stri
   )
 
   if (!data?.loginWithOTP?.accessToken) {
-    throw new Error('OTP validation failed — incorrect code or expired token. Please try again.')
+    throw new Error(
+      'OTP validation failed. The code is incorrect or the token has expired. Try again.',
+    )
   }
 
   session.accessToken = data.loginWithOTP.accessToken

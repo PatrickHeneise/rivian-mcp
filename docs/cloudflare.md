@@ -1,12 +1,10 @@
 # Record your drives with Cloudflare
 
-rivian-mcp on your computer answers questions about your Rivian as it is now, such as its battery level. It cannot remember where you drove, because it only runs while you use it.
+Run the recorder in your Cloudflare account to keep drive and charging history. Ask Claude or ChatGPT, "Show my last drive" or "How far did I drive this month?"
 
-For that, you can run a small copy of it in your own Cloudflare account. It stays connected to your Rivian, records every drive and charge, and lets Claude or ChatGPT answer questions like "Show my last drive" or "How far did I drive this month?"
+The local version queries live vehicle data without recording it. You can keep using it without Cloudflare.
 
-This is optional. The local version keeps working without it.
-
-This is unofficial. It is not affiliated with or endorsed by Rivian. It only reads data from Rivian. The one thing it sends is your sign-in.
+This project is unofficial and is not affiliated with or endorsed by Rivian. It reads vehicle data and sends authentication requests. It cannot send vehicle commands.
 
 ## What you need
 
@@ -21,7 +19,7 @@ The screenshots come from a test account where the Worker is named `rivian-cloud
 
 ## Cost
 
-Start with the free Cloudflare plan. Its limits for the part that stays connected to your Rivian (Durable Objects) are 100,000 requests and 13,000 GB-seconds per day ([Cloudflare pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)). I have not measured how much of that this uses. If recording stops, inspect `recorder_status` and the Worker logs: quota exhaustion, a lost connection or an expired Rivian session can all interrupt recording. Workers Paid starts at $5 per month.
+Start with the free Cloudflare plan. Its limits for the recorder (a Durable Object) are 100,000 requests and 13,000 GB-seconds per day ([Cloudflare pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)). I have not measured how much of that this uses. If recording stops, inspect `recorder_status` and the Worker logs: quota exhaustion, a lost connection or an expired Rivian session can all interrupt recording. Workers Paid starts at $5 per month.
 
 ## Step 1: Deploy
 
@@ -39,7 +37,7 @@ Start with the free Cloudflare plan. Its limits for the part that stays connecte
 
    ![Cloudflare's Create and deploy step with the project name rivian-mcp and a new KV namespace](images/cloudflare-create-and-deploy.png)
 
-6. Turn off preview builds: open **Workers & Pages**, then **rivian-mcp**, then **Settings**, then **Build**. Under **Branch control**, clear **Enable Preview Builds**. Your copy has one recorder, so a preview of another branch has nothing to do.
+6. Turn off preview builds: open **Workers & Pages**, then **rivian-mcp**, then **Settings**, then **Build**. Under **Branch control**, clear **Enable Preview Builds**. This setup uses one production recorder.
 
 Cloudflare copies the project to your GitHub, creates the storage it needs, sets up the database and starts it. This takes a few minutes. When it is done, it shows your address:
 
@@ -47,7 +45,7 @@ Cloudflare copies the project to your GitHub, creates the storage it needs, sets
 https://rivian-mcp.<your-name>.workers.dev
 ```
 
-You can find it again in the Cloudflare dashboard: **Workers & Pages**, then **rivian-mcp**, then **Domains**.
+Find the address under **Workers & Pages** > **rivian-mcp** > **Domains**.
 
 ![The Domains tab of the Worker in the Cloudflare dashboard, showing the production Worker URL](images/cloudflare-worker-url.png)
 
@@ -65,7 +63,7 @@ To check it, open it in a browser. A blank page or `Unauthorized` means it runs.
 
 ## Sign in
 
-Claude, ChatGPT and Codex all open the same two pages from your copy when they connect. The page names the app that asks for access.
+Claude, ChatGPT and Codex all open the same two pages from your copy when they connect. Each page names the app requesting access.
 
 1. Enter your Rivian email and password and select **Sign in and allow**. The first account that signs in becomes the owner of your copy, so connect right after you deploy.
 
@@ -75,7 +73,7 @@ Claude, ChatGPT and Codex all open the same two pages from your copy when they c
 
    ![Step 2 of 2 on the sign-in page: the one-time code field](images/sign-in-step-2.png)
 
-Your password passes through your Worker to Rivian only to sign in. Your copy does not store it.
+Your Worker forwards the password to Rivian for sign-in. It does not store the password.
 
 ## Connect Claude
 
@@ -165,7 +163,7 @@ git pull https://github.com/zentered-studios/rivian-mcp.git main
 git push
 ```
 
-Cloudflare deploys every change to your copy by itself.
+Cloudflare automatically deploys changes pushed to the production branch.
 
 ## Your data
 
@@ -186,9 +184,9 @@ In the Cloudflare dashboard, open **Workers & Pages**, select **rivian-mcp**, th
 
 ### Deleting the Cloudflare account
 
-Cloudflare documents a self-service path under **My Profile**, then **Delete this user**, after removing domains, subscriptions and payment information. This deletes the profile and associated accounts, not just this Worker. See [Cloudflare's deletion guide](https://developers.cloudflare.com/fundamentals/user-profiles/delete-account/) for the exact scope and prerequisites.
+Cloudflare documents a self-service path under **My Profile**, then **Delete this user**, after removing domains, subscriptions and payment information. Deleting the profile also deletes associated accounts. To remove only this project, follow [Remove it](#remove-it). See [Cloudflare's deletion guide](https://developers.cloudflare.com/fundamentals/user-profiles/delete-account/) for the exact scope and prerequisites.
 
-In a project test account, deletion was blocked by an active Workers Free subscription with no cancellation control. If that happens, contact Cloudflare support. That observed failure does not mean all Worker accounts are undeletable. To remove only this project, follow [Remove it](#remove-it) instead.
+In a project test account, deletion was blocked by an active Workers Free subscription with no cancellation control. If that happens, contact Cloudflare support. This was a project test result, not a restriction documented for all Worker accounts.
 
 ## Set it up from a terminal instead
 
