@@ -3,39 +3,95 @@
 import type { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { registerQueryTools, text } from '../../src/tools.ts'
+import { type DriveRow, enrichDrive, enrichDrives, loadPoints } from './enrich.ts'
+import {
+  DRIVES_SCHEMA,
+  type DriveFacts,
+  type DrivePayload,
+  drivePayload,
+  type RoutePoint,
+  SPARSE_POINTS_PER_KM,
+  toGeoJsonCollection,
+  toGeoJsonFeature,
+  toGpx,
+} from './export.ts'
+import { MIN_AVG_SPEED_MPS, MIN_DRIVE_M } from './stats.ts'
+import { localIso, timezoneAt, utcIso, zoneAbbreviation } from './timezone.ts'
 
-/** get_drive returns at most this many points so the result fits a model context. */
-const MAX_TRACK_POINTS = 500
+export type { DriveRow } from './enrich.ts'
 
-export interface DriveRow {
-  id: string
-  vehicle_id: string
-  started_at: number
-  ended_at: number | null
-  start_lat: number
-  start_lon: number
-  end_lat: number
-  end_lon: number
-  start_odometer_km: number | null
-  end_odometer_km: number | null
-  distance_m: number
-  max_speed_mps: number
-  point_count: number
-}
+/** get_drive returns at most this many points by default so the result fits a model context. */
+const DEFAULT_TRACK_POINTS = 500
+/** export_drive simplifies the route to this many points unless asked otherwise. */
+const DEFAULT_EXPORT_POINTS = 100
+const MAX_POINTS = 2000
+/** A date range export stops here, so one call stays bounded. */
+const MAX_EXPORT_DRIVES = 50
+/** list_drives hides drives shorter than this unless min_distance_km says otherwise. */
+const DEFAULT_MIN_DISTANCE_KM = MIN_DRIVE_M / 1000
 
 const recorder = (env: Env) => env.RECORDER.get(env.RECORDER.idFromName('default'))
 export const km = (m: number) => `${(m / 1000).toFixed(1)} km`
 const kmh = (mps: number) => `${Math.round(mps * 3.6)} km/h`
-export const iso = (ms: number) => new Date(ms).toISOString().replace('.000Z', 'Z')
+export const iso = utcIso
 
-function summary(d: DriveRow): string {
-  const minutes = d.ended_at ? Math.round((d.ended_at - d.started_at) / 60_000) : null
+const dateArg = (what: string) => z.string().date().optional().describe(`${what} (YYYY-MM-DD, UTC)`)
+const maxPointsArg = (fallback: number) =>
+  z
+    .number()
+    .int()
+    .min(2)
+    .max(MAX_POINTS)
+    .default(fallback)
+    .describe('Most route points to return; the track is simplified (Douglas-Peucker) to fit')
+
+/** Human summary of a drive for the text content: places, local times, stats, quality. */
+export function describeDrive(d: DriveFacts, open: boolean): string {
+  const tz = timezoneAt(d.startLat, d.startLon)
+  const endTz = timezoneAt(d.endLat, d.endLon) ?? tz
+  const minutes = Math.round((d.endedAt - d.startedAt) / 60_000)
+  const startLocal = localIso(d.startedAt, tz)
+  const endLocal = localIso(d.endedAt, endTz)
+  const startZone = zoneAbbreviation(d.startedAt, tz)
+  const endZone = zoneAbbreviation(d.endedAt, endTz)
+  const sameDay = startLocal.slice(0, 10) === endLocal.slice(0, 10)
+  const startClock = startLocal.slice(0, 16).replace('T', ' ')
+  const when = open
+    ? `${startClock} ${startZone} -> in progress`
+    : `${startClock}${startZone === endZone ? '' : ` ${startZone}`} -> ${(sameDay ? endLocal.slice(11, 16) : endLocal.slice(0, 16)).replace('T', ' ')} ${endZone} (${minutes} min)`
+  const place = (p: typeof d.start, lat: number, lon: number) =>
+    p?.label ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+  const stats = [
+    km(d.distanceM),
+    `max ${kmh(d.maxSpeedMps)}`,
+    d.elevation
+      ? `+${Math.round(d.elevation.gainM)} m / -${Math.round(d.elevation.lossM)} m`
+      : 'elevation unknown',
+    d.energy
+      ? `${d.energy.energyKwh} kWh (SoC ${d.energy.socStartPct}% -> ${d.energy.socEndPct}%)`
+      : 'energy unknown (no battery samples)',
+  ]
+  const perKm = d.distanceM > 0 ? d.pointCount / (d.distanceM / 1000) : 0
+  const quality = [`${d.pointCount} points (${perKm.toFixed(1)}/km)`]
+  if (d.noise) quality.push('NOISE: parked GPS drift, not a drive')
+  else if (perKm < SPARSE_POINTS_PER_KM && d.pointCount > 0) quality.push('SPARSE: coarse route')
   return [
-    `${d.id}`,
-    `  ${iso(d.started_at)} -> ${d.ended_at ? iso(d.ended_at) : 'in progress'}${minutes === null ? '' : ` (${minutes} min)`}`,
-    `  ${km(d.distance_m)}, max ${kmh(d.max_speed_mps)}, ${d.point_count} points`,
+    d.id,
+    `  ${place(d.start, d.startLat, d.startLon)} -> ${place(d.end, d.endLat, d.endLon)}`,
+    `  ${when}`,
+    `  ${stats.join(', ')}`,
+    `  ${quality.join(', ')}`,
   ].join('\n')
 }
+
+const driveById = (db: D1Database, id: string) =>
+  db.prepare('SELECT * FROM drives WHERE id = ?').bind(id).first<DriveRow>()
+
+/** The speed half of `isNoise` for closed drives, so a LIMIT never counts rows it would drop. */
+const MIN_SPEED_SQL = `(ended_at <= started_at OR distance_m >= (ended_at - started_at) / 1000.0 * ${MIN_AVG_SPEED_MPS})`
+
+const dayStart = (date: string) => Date.parse(`${date}T00:00:00Z`)
+const dayEnd = (date: string) => Date.parse(`${date}T23:59:59.999Z`)
 
 export function registerTools(server: McpServer, env: Env): void {
   registerQueryTools(server, {
@@ -70,55 +126,185 @@ export function registerTools(server: McpServer, env: Env): void {
   server.registerTool(
     'list_drives',
     {
-      description: 'List recorded drives, newest first.',
+      description: [
+        'List recorded drives, newest first, each with start and end place (neighborhood, city, region),',
+        'local start and end time, distance, max speed, elevation gain and loss, energy used, and a',
+        'quality line (GPS fix density; NOISE for parked drift, SPARSE for coarse routes). Drives under',
+        `${DEFAULT_MIN_DISTANCE_KM} km are hidden unless min_distance_km is lower. To add a drive to`,
+        'Roadbook, call export_drive with its id and pass the payload to Roadbook import_drive.',
+      ].join(' '),
       inputSchema: z.object({
         limit: z.number().int().min(1).max(100).default(20),
-        since: z
-          .string()
-          .date()
-          .optional()
-          .describe('Only drives on or after this date (YYYY-MM-DD)'),
+        since: dateArg('Only drives on or after this date'),
+        until: dateArg('Only drives on or before this date'),
+        min_distance_km: z
+          .number()
+          .min(0)
+          .default(DEFAULT_MIN_DISTANCE_KM)
+          .describe('Hide drives shorter than this; 0 shows everything including GPS noise'),
       }),
       annotations: { readOnlyHint: true },
     },
-    async ({ limit, since }) => {
-      const sinceMs = since ? Date.parse(`${since}T00:00:00Z`) : 0
+    async ({ limit, since, until, min_distance_km: minKm }) => {
       const { results } = await env.DB.prepare(
-        'SELECT * FROM drives WHERE started_at >= ? ORDER BY started_at DESC LIMIT ?',
+        'SELECT * FROM drives WHERE started_at BETWEEN ? AND ? AND distance_m >= ? ORDER BY started_at DESC LIMIT ?',
       )
-        .bind(sinceMs, limit)
+        .bind(
+          since ? dayStart(since) : 0,
+          until ? dayEnd(until) : Number.MAX_SAFE_INTEGER,
+          minKm * 1000,
+          limit,
+        )
         .all<DriveRow>()
-      if (results.length === 0) return text('No drives recorded.')
-      const total = results.reduce((sum, d) => sum + d.distance_m, 0)
-      return text(`${results.length} drives, ${km(total)}\n\n${results.map(summary).join('\n\n')}`)
+      if (results.length === 0) return text('No drives recorded for that range.')
+      const drives = await enrichDrives(env.DB, results)
+      const total = drives.reduce((sum, d) => sum + d.distanceM, 0)
+      const openIds = new Set(results.filter((r) => r.ended_at === null).map((r) => r.id))
+      const body = drives.map((d) => describeDrive(d, openIds.has(d.id))).join('\n\n')
+      return {
+        ...text(`${drives.length} drives, ${km(total)}\n\n${body}`),
+        structuredContent: {
+          drives: drives.map((d) => ({
+            id: d.id,
+            started_at: utcIso(d.startedAt),
+            ended_at: openIds.has(d.id) ? null : utcIso(d.endedAt),
+            start: d.start?.label ?? null,
+            end: d.end?.label ?? null,
+            distance_km: Number((d.distanceM / 1000).toFixed(2)),
+            duration_min: Math.round((d.endedAt - d.startedAt) / 60_000),
+            energy_kwh: d.energy?.energyKwh ?? null,
+            point_count: d.pointCount,
+            noise: d.noise,
+          })),
+        },
+      }
     },
   )
 
   server.registerTool(
     'get_drive',
     {
-      description: `Get one drive with its route as a GeoJSON LineString (at most ${MAX_TRACK_POINTS} points).`,
-      inputSchema: z.object({ id: z.string().describe('Drive id from list_drives') }),
+      description: [
+        'Get one drive: the summary from list_drives plus a GeoJSON Feature whose geometry is the',
+        'route as a LineString and whose properties carry the roadbook.drive/1 fields (source, UTC and',
+        'local times, time zone, distance, duration, max speed, elevation, energy, start and end with',
+        'coordinates and place labels, quality). For a payload to send to Roadbook use export_drive.',
+      ].join(' '),
+      inputSchema: z.object({
+        id: z.string().describe('Drive id from list_drives'),
+        max_points: maxPointsArg(DEFAULT_TRACK_POINTS),
+      }),
       annotations: { readOnlyHint: true },
     },
-    async ({ id }) => {
-      const drive = await env.DB.prepare('SELECT * FROM drives WHERE id = ?')
-        .bind(id)
-        .first<DriveRow>()
-      if (!drive) return text(`No drive with id ${id}.`)
-      const { results } = await env.DB.prepare(
-        'SELECT lon, lat FROM points WHERE drive_id = ? ORDER BY ts',
-      )
-        .bind(id)
-        .all<{ lon: number; lat: number }>()
-      const step = Math.ceil(results.length / MAX_TRACK_POINTS)
-      const track = results.filter((_, i) => i % step === 0 || i === results.length - 1)
-      const geojson = {
-        type: 'Feature',
-        properties: { id: drive.id, startedAt: drive.started_at, endedAt: drive.ended_at },
-        geometry: { type: 'LineString', coordinates: track.map((p) => [p.lon, p.lat]) },
+    async ({ id, max_points: maxPoints }) => {
+      const row = await driveById(env.DB, id)
+      if (!row) return text(`No drive with id ${id}.`)
+      const points = await loadPoints(env.DB, id)
+      const facts = await enrichDrive(env.DB, row, points)
+      const feature = toGeoJsonFeature(drivePayload(facts, points, maxPoints))
+      return {
+        ...text(`${describeDrive(facts, row.ended_at === null)}\n\n${JSON.stringify(feature)}`),
+        structuredContent: feature,
       }
-      return text(`${summary(drive)}\n\n${JSON.stringify(geojson)}`)
+    },
+  )
+
+  server.registerTool(
+    'export_drive',
+    {
+      description: [
+        'Export one drive, or every drive in a date range, as a ready-to-send payload. The default',
+        'format `roadbook` is the roadbook.drive/1 JSON that Roadbook import_drive accepts unchanged:',
+        'pass the whole object as its `drive` argument (a date range gives roadbook.drives/1 with a',
+        '`drives` array; pass that as `drives`), with an optional tripId to add to an existing trip.',
+        'Each drive carries source {system, id} for idempotency, UTC and local times with the time',
+        'zone, distance_km, duration_min, max_speed_kmh, elevation gain and loss, energy_kwh (null',
+        'when no battery sample is close enough), start and end {lat, lng, label, city, region,',
+        'country} and the route as a simplified GeoJSON LineString. No arguments exports the latest',
+        'drive. `geojson` gives a Feature or FeatureCollection, `gpx` a GPX 1.1 track file.',
+      ].join(' '),
+      inputSchema: z.object({
+        id: z.string().optional().describe('Drive id from list_drives; omit for the latest drive'),
+        since: dateArg('Export every drive from this date'),
+        until: dateArg('Export every drive up to this date (defaults to today when since is set)'),
+        format: z.enum(['roadbook', 'geojson', 'gpx']).default('roadbook'),
+        max_points: maxPointsArg(DEFAULT_EXPORT_POINTS),
+        include_noise: z
+          .boolean()
+          .default(false)
+          .describe('Also export drives flagged as parked GPS noise'),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ id, since, until, format, max_points: maxPoints, include_noise: includeNoise }) => {
+      let rows: DriveRow[]
+      if (id) {
+        const row = await driveById(env.DB, id)
+        if (!row) return text(`No drive with id ${id}.`)
+        if (row.ended_at === null)
+          return text(`Drive ${id} is still in progress; export it once it has ended.`)
+        rows = [row]
+      } else if (since || until) {
+        const from = since ? dayStart(since) : 0
+        const to = until ? dayEnd(until) : Number.MAX_SAFE_INTEGER
+        const { results } = await env.DB.prepare(
+          `SELECT * FROM drives WHERE started_at BETWEEN ? AND ? AND ended_at IS NOT NULL AND distance_m >= ? AND (? OR ${MIN_SPEED_SQL}) ORDER BY started_at ASC LIMIT ?`,
+        )
+          .bind(
+            from,
+            to,
+            includeNoise ? 0 : MIN_DRIVE_M,
+            includeNoise ? 1 : 0,
+            MAX_EXPORT_DRIVES + 1,
+          )
+          .all<DriveRow>()
+        rows = results
+      } else {
+        const { results } = await env.DB.prepare(
+          `SELECT * FROM drives WHERE ended_at IS NOT NULL AND distance_m >= ? AND (? OR ${MIN_SPEED_SQL}) ORDER BY started_at DESC LIMIT 1`,
+        )
+          .bind(includeNoise ? 0 : MIN_DRIVE_M, includeNoise ? 1 : 0)
+          .all<DriveRow>()
+        rows = results
+      }
+      if (rows.length === 0) return text('No drives to export for that selection.')
+      const truncated = rows.length > MAX_EXPORT_DRIVES
+      if (truncated) rows = rows.slice(0, MAX_EXPORT_DRIVES)
+
+      const drives: { payload: DrivePayload; points: RoutePoint[] }[] = []
+      for (const row of rows) {
+        const points = await loadPoints(env.DB, row.id)
+        const facts = await enrichDrive(env.DB, row, points)
+        if (facts.noise && !includeNoise && id === undefined) continue
+        drives.push({ payload: drivePayload(facts, points, maxPoints), points })
+      }
+      if (drives.length === 0)
+        return text('Only GPS noise in that selection; pass include_noise to export it.')
+      const single = id !== undefined || (!since && !until)
+      const notice = truncated
+        ? [
+            {
+              type: 'text' as const,
+              text: `Stopped at ${MAX_EXPORT_DRIVES} drives; narrow the date range for the rest.`,
+            },
+          ]
+        : []
+
+      if (format === 'gpx')
+        return { content: [...text(toGpx(drives, maxPoints)).content, ...notice] }
+      const payloads = drives.map((d) => d.payload)
+      const body =
+        format === 'geojson'
+          ? single
+            ? toGeoJsonFeature(payloads[0])
+            : toGeoJsonCollection(payloads)
+          : single
+            ? payloads[0]
+            : { schema: DRIVES_SCHEMA, drives: payloads }
+      return {
+        content: [...text(JSON.stringify(body)).content, ...notice],
+        structuredContent: body,
+      }
     },
   )
 }

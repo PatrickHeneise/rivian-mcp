@@ -162,6 +162,7 @@ Cloudflare deploys every change to your copy by itself.
 
   ![Cloudflare's D1 Studio showing the charge_samples table of the rivian-mcp database](images/cloudflare-d1-charge-samples.png)
 
+- Place names for drive starts and ends come from [Photon](https://photon.komoot.io) (komoot's OpenStreetMap geocoder). The Worker sends it the coordinate rounded to about 100 m, with no account or drive id, and caches the answer in D1 so each place is asked once. Labels stop at the neighborhood or city; no street or house number is stored or shown.
 - Your Rivian password goes straight to Rivian and is not stored. The Worker keeps the session Rivian returns, the same way the Rivian app stays signed in.
 - The first Rivian account that signs in owns your copy. After that, only its email can sign in. Sign-in attempts are limited to 10 per minute.
 - Until you sign in, anyone who finds your address can claim your copy with their own Rivian account. Connect right after you deploy. To pin the owner up front, add a `RIVIAN_EMAIL` secret: **Settings**, then **Variables and Secrets**.

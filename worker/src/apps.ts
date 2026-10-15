@@ -19,11 +19,11 @@ import type {
   StatsView,
   TrackPoint,
 } from './app-data.ts'
+import { batterySamples, DAY_MS, driveWindowSamples } from './battery.ts'
 import { type DriveRow, iso, km } from './mcp.ts'
 import { RVM_BATTERY, RVM_CHARGE_BREAKDOWN } from './parallax.ts'
-import { DAILY_CAPACITY_SQL, DRIVE_WINDOW_SAMPLES_SQL, STATS_POINTS_SQL } from './queries.ts'
+import { DAILY_CAPACITY_SQL, STATS_POINTS_SQL } from './queries.ts'
 import {
-  type BatterySample,
   chargeSessions,
   downsample,
   driveEnergy,
@@ -35,8 +35,6 @@ import {
   MIN_DRIVE_M,
   round,
   SESSION_GAP_MS,
-  SOC_LOOKAHEAD_MS,
-  SOC_LOOKBACK_MS,
 } from './stats.ts'
 
 export const APP_URI = 'ui://rivian-mcp/app.html'
@@ -47,7 +45,6 @@ const MAX_ROUTE_POINTS = 150
 const MAX_SERIES_POINTS = 300
 /** Stats read one point per this window, so a year of drives stays a bounded query. */
 const STATS_POINT_BUCKET_MS = 15_000
-const DAY_MS = 86_400_000
 /** Charging reads every battery sample of the period, so it takes a shorter range than stats. */
 const MAX_CHARGING_DAYS = 90
 
@@ -272,45 +269,6 @@ async function chargingView(db: D1Database, days: number): Promise<ChargingView>
   }
   sessions.sort((a, b) => b.startedAt - a.startedAt)
   return { kind: 'charging', from, to, sessions }
-}
-
-async function batterySamples(
-  db: D1Database,
-  vehicleId: string,
-  from: number,
-  to: number,
-): Promise<BatterySample[]> {
-  const { results } = await db
-    .prepare(
-      'SELECT ts, data FROM charge_samples WHERE vehicle_id = ? AND rvm = ? AND ts BETWEEN ? AND ? ORDER BY ts',
-    )
-    .bind(vehicleId, RVM_BATTERY, from, to)
-    .all<{ ts: number; data: string }>()
-  return results.flatMap(parseBattery)
-}
-
-function parseBattery(r: { ts: number; data: string }): BatterySample[] {
-  const data = JSON.parse(r.data) as { socPct?: number; packEnergyKwh?: number }
-  if (data.socPct === undefined) return []
-  return [{ ts: r.ts, socPct: data.socPct, packEnergyKwh: data.packEnergyKwh ?? null }]
-}
-
-/** Battery samples near the drives since `from`, per vehicle, so a long period stays bounded. */
-async function driveWindowSamples(
-  db: D1Database,
-  from: number,
-): Promise<Map<string, BatterySample[]>> {
-  const { results } = await db
-    .prepare(DRIVE_WINDOW_SAMPLES_SQL)
-    .bind(RVM_BATTERY, from, SOC_LOOKBACK_MS, DAY_MS, SOC_LOOKAHEAD_MS)
-    .all<{ vehicle_id: string; ts: number; data: string }>()
-  const byVehicle = new Map<string, BatterySample[]>()
-  for (const r of results) {
-    const list = byVehicle.get(r.vehicle_id) ?? []
-    list.push(...parseBattery(r))
-    byVehicle.set(r.vehicle_id, list)
-  }
-  return byVehicle
 }
 
 /** The last pack capacity reading of each UTC day, over all vehicles. */
