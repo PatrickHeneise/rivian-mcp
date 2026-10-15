@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { registerTools } from '../src/mcp.ts'
+import { describeDrive, registerTools } from '../src/mcp.ts'
 import { BOULDER_START_MS, boulderToLongmont, fakeD1 } from './support/d1.ts'
 import './support/cloudflare-stub.ts'
 
@@ -68,4 +68,30 @@ test('a truncated export keeps its notice out of the GPX and JSON text', async (
   const json = await call(range)
   JSON.parse(json.content[0].text)
   assert.match(json.content[1].text, /Stopped at 50 drives/)
+})
+
+test('describeDrive labels each end of a cross-zone drive with its own zone', () => {
+  const start = Date.UTC(2026, 9, 13, 20, 0)
+  const text = describeDrive(
+    {
+      id: 'x',
+      vehicleId: 'v1',
+      startedAt: start,
+      endedAt: start + 2 * HOUR,
+      startLat: 39.7392,
+      startLon: -104.9903,
+      endLat: 36.1699,
+      endLon: -115.1398,
+      distanceM: 1_000_000,
+      maxSpeedMps: 30,
+      pointCount: 100,
+      noise: false,
+      energy: null,
+      elevation: null,
+      start: null,
+      end: null,
+    },
+    false,
+  )
+  assert.match(text, /14:00 MDT -> 15:00 PDT \(120 min\)/)
 })

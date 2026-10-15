@@ -48,13 +48,17 @@ const maxPointsArg = (fallback: number) =>
 /** Human summary of a drive for the text content: places, local times, stats, quality. */
 export function describeDrive(d: DriveFacts, open: boolean): string {
   const tz = timezoneAt(d.startLat, d.startLon)
+  const endTz = timezoneAt(d.endLat, d.endLon) ?? tz
   const minutes = Math.round((d.endedAt - d.startedAt) / 60_000)
   const startLocal = localIso(d.startedAt, tz)
-  const endLocal = localIso(d.endedAt, timezoneAt(d.endLat, d.endLon) ?? tz)
+  const endLocal = localIso(d.endedAt, endTz)
+  const startZone = zoneAbbreviation(d.startedAt, tz)
+  const endZone = zoneAbbreviation(d.endedAt, endTz)
   const sameDay = startLocal.slice(0, 10) === endLocal.slice(0, 10)
+  const startClock = startLocal.slice(0, 16).replace('T', ' ')
   const when = open
-    ? `${startLocal.slice(0, 16).replace('T', ' ')} ${zoneAbbreviation(d.startedAt, tz)} -> in progress`
-    : `${startLocal.slice(0, 16).replace('T', ' ')} -> ${(sameDay ? endLocal.slice(11, 16) : endLocal.slice(0, 16)).replace('T', ' ')} ${zoneAbbreviation(d.endedAt, tz)} (${minutes} min)`
+    ? `${startClock} ${startZone} -> in progress`
+    : `${startClock}${startZone === endZone ? '' : ` ${startZone}`} -> ${(sameDay ? endLocal.slice(11, 16) : endLocal.slice(0, 16)).replace('T', ' ')} ${endZone} (${minutes} min)`
   const place = (p: typeof d.start, lat: number, lon: number) =>
     p?.label ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
   const stats = [
