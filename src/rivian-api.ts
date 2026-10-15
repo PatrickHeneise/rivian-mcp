@@ -7,6 +7,7 @@
 
 const GRAPHQL_GATEWAY = 'https://rivian.com/api/gql/gateway/graphql'
 const GRAPHQL_CHARGING = 'https://rivian.com/api/gql/chrg/user/graphql'
+const REQUEST_TIMEOUT_MS = 30_000
 export const APOLLO_CLIENT_NAME = 'com.rivian.ios.consumer-apollo-ios'
 
 const BASE_HEADERS = {
@@ -705,6 +706,7 @@ async function gql<T>(
   try {
     res = await fetch(url, {
       method: 'POST',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         ...BASE_HEADERS,
         'dc-cid': `m-ios-${crypto.randomUUID()}`,
