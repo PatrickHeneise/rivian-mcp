@@ -412,7 +412,7 @@ Rejected on `User`: `userId`, `locale`, `preferences`, `orders`.
 
 ## Subscriptions (websocket)
 
-Verified live on Oct 9, 2026 (2025 R1S, 2026.31.0, parked) with read-only subscriptions. The topic list and the GNSS field map came from a separate "drive data audit" session, which read bretterer/rivian-python-client and blike/rivianmate (incl. PR #15). This repo does not use subscriptions yet.
+Verified live on Oct 9, 2026 (2025 R1S, 2026.31.0, parked) with read-only subscriptions. The topic list and the GNSS field map came from a separate "drive data audit" session, which read bretterer/rivian-python-client and blike/rivianmate (incl. PR #15). The Worker recorder now uses `VehicleState` and `ParallaxMessages` subscriptions (`worker/src/recorder.ts`); this section preserves the dated discovery evidence.
 
 - **URL:** `wss://api.rivian.com/gql-consumer-subscriptions/graphql`, subprotocol `graphql-transport-ws`. No custom headers needed.
 - **connection_init:** `{"type":"connection_init","payload":{"client-name":"com.rivian.ios.consumer-apollo-ios","client-version":"1.13.0-1494","dc-cid":"m-ios-<uuid4>","u-sess":"<userSessionToken>"}}` returns `connection_ack`. Then send `{"id":"<uuid>","type":"subscribe","payload":{operationName,query,variables}}`. Data arrives as `next` messages. Each subscription sends its current value at once, then pushes changes.

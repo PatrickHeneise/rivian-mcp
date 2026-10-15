@@ -19,7 +19,9 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 | `src/rivian-api.ts` | All API interaction — session state, queries, auth  |
 | `src/format.ts`     | Human-readable output for MCP/CLI                   |
 | `src/session.ts`    | Session persistence to `~/.rivian-mcp/session.json` |
-| `src/mcp-server.ts`     | MCP server — tool registration and session restore  |
+| `src/mcp-server.ts`     | Stdio MCP entry point, authentication tools and session restore |
+| `src/tools.ts` | Live query tools shared by stdio and the Worker |
+| `worker/src/recorder.ts` | Durable Object recorder and live websocket subscriptions |
 | `src/cli.ts`            | CLI — `ota` and `stats` commands                    |
 
 ## API Endpoints
@@ -38,8 +40,8 @@ Forbidden: `sendVehicleCommand`, `setVehicleName`, `setChargingSchedules`, any w
 1. `createCsrfToken(session)` → gets `csrfToken` + `appSessionToken`
 2. `login(session, email, password)` → `{ mfa: true|false }`
    - `mfa: true` → OTP sent → `validateOtp(session, email, code)`
-3. All queries require `A-Sess` + `U-Sess` headers
-4. Session persists to `~/.rivian-mcp/session.json`, valid 90 days (`SESSION_MAX_AGE_MS` in `src/session.ts`)
+3. Gateway queries use `A-Sess` + `U-Sess`; charging queries use `U-Sess` + `Authorization: Bearer <accessToken>`
+4. The local session persists to `~/.rivian-mcp/session.json` and is reused for at most 90 days (`SESSION_MAX_AGE_MS` in `src/session.ts`). Rivian can expire it sooner. The Worker stores sessions in its Recorder Durable Object instead.
 5. `exportSession(session)` / `restoreSession(session, saved)` — serialize/restore state
 6. `isAuthenticated(session)` / `needsOtp(session)` — check status
 
@@ -69,7 +71,7 @@ query GetVehicleState($vehicleID: String!) {
 }
 ```
 
-Pass a `Set<string>` to fetch specific properties; omit for the full default set (~80 properties). Most return `{ timeStamp, value }`. Three use custom templates defined in `TEMPLATE_MAP`: `cloudConnection`, `gnssLocation`, `gnssError`.
+Pass a `Set<string>` to fetch specific properties; omit for the full default set. Most return `{ timeStamp, value }`. Three use custom templates defined in `TEMPLATE_MAP`: `cloudConnection`, `gnssLocation`, `gnssError`.
 
 **Units gotcha:** `vehicleMileage` is in **meters** (live `47393698` = 47,394 km) — divide by 1000 for km. `batteryLevel` has float noise (round for display). See `references/vehicle-state-properties.md` for per-field units.
 
@@ -87,7 +89,7 @@ Reads `batteryLevel`, `batteryLimit`, `timeToEndOfCharge`, `chargerState` and `c
 
 ### `getChargingHistory(vehicleId)`
 
-Queries `getCompletedSessionSummariesV2(vehicleId: String!, pageSize: Int, searchAfter: String)` and follows `pageInfo.nextCursor` (max `pageSize` 100, cap 30 pages). Maps each item to the legacy flat shape (`startInstant`, `totalEnergyKwh`, `rangeAddedKm`, `vendor`, `city`, `paidTotal`, ...). The v1 `getCompletedSessionSummaries` still validates but returns `[]` (Oct 2026).
+Queries `getCompletedSessionSummariesV2(vehicleId: String!, pageSize: Int, searchAfter: String)` and follows `pageInfo.nextCursor` (max `pageSize` 100, no fixed page cap; repeated or missing continuation cursors are errors). Maps each item to the legacy flat shape (`startInstant`, `totalEnergyKwh`, `rangeAddedKm`, `vendor`, `city`, `paidTotal`, ...). The v1 `getCompletedSessionSummaries` still validates but returns `[]` (Oct 2026).
 
 ### `getChargingSchedule(vehicleId)`
 
@@ -108,14 +110,14 @@ Returns `invitedUsers` (provisioned + unprovisioned) with enrolled devices.
 
 1. Add an exported function to `src/rivian-api.ts`.
 2. Add a `format*` function to `src/format.ts`.
-3. Register with `server.registerTool(name, { description, inputSchema, annotations: READ_ONLY }, handler)` in `src/mcp-server.ts`. `inputSchema` is a `z.object(...)`.
-4. Handler pattern (`query` checks auth and turns errors into text):
+3. Register live queries with `server.registerTool(name, { description, inputSchema, annotations: READ_ONLY }, handler)` in `src/tools.ts` so both the stdio server and the Worker expose them. `inputSchema` is a `z.object(...)`.
+4. Handler pattern (`query` obtains authentication from `QueryContext` and returns errors with `isError: true`):
 
 ```ts
 ({ param }) =>
-  query(async () => {
-    const vehicleId = await resolveVehicleId()
-    return format.formatMyThing(await rivian.getMyThing(session, vehicleId))
+  query(async (session) => {
+    const vehicleId = await ctx.vehicleId(session)
+    return format.formatMyThing(await rivian.getMyThing(session, vehicleId, param))
   })
 ```
 
@@ -155,4 +157,4 @@ if (myKeys.some((k) => k in state)) {
 
 - **`references/vehicle-state-properties.md`** — Complete tables of all confirmed-working vehicle state properties with types and example values, charging session/history/schedule fields, and a list of field names that were probed and do NOT exist. Consult before adding any new field.
   - Verified read-only queries not yet implemented as tools: `getRegisteredWallboxes`, `getSessionStatusByVehicleId`, `Vehicle.estimatedRange(startSoc)`, and the `chartData` series of `getLiveSessionHistory`. Schemas are in the reference under "Additional Queries → Confirmed working."
-  - Websocket subscriptions (`VehicleState` with subscription-only fields, `ParallaxMessages` with 25 RVM topics, `chargingSession`, `vehicleDepartureSchedules`) are verified live but not used in code. See the reference under "Subscriptions (websocket)". Use one `VehicleState` subscription per vehicle: parallel ones hit `SUBSCRIPTION_LIMIT_EXCEEDED`.
+  - Websocket subscriptions (`VehicleState` with subscription-only fields, `ParallaxMessages` with 25 RVM topics, `chargingSession`, `vehicleDepartureSchedules`) have been verified live. The Worker recorder uses `VehicleState` and `ParallaxMessages`; the other subscriptions remain reference material. See the reference under "Subscriptions (websocket)". Use one `VehicleState` subscription per vehicle: parallel ones hit `SUBSCRIPTION_LIMIT_EXCEEDED`.
