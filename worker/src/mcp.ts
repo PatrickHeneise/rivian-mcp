@@ -10,6 +10,7 @@ import {
   type DrivePayload,
   drivePayload,
   type RoutePoint,
+  SPARSE_POINTS_PER_KM,
   toGeoJsonCollection,
   toGeoJsonFeature,
   toGpx,
@@ -69,7 +70,7 @@ export function describeDrive(d: DriveFacts, open: boolean): string {
   const perKm = d.distanceM > 0 ? d.pointCount / (d.distanceM / 1000) : 0
   const quality = [`${d.pointCount} points (${perKm.toFixed(1)}/km)`]
   if (d.noise) quality.push('NOISE: parked GPS drift, not a drive')
-  else if (perKm < 3 && d.pointCount > 0) quality.push('SPARSE: coarse route')
+  else if (perKm < SPARSE_POINTS_PER_KM && d.pointCount > 0) quality.push('SPARSE: coarse route')
   return [
     d.id,
     `  ${place(d.start, d.startLat, d.startLon)} -> ${place(d.end, d.endLat, d.endLon)}`,
