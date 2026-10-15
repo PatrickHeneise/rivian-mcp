@@ -60,10 +60,14 @@ ChatGPT and Codex work too: [Connect ChatGPT](docs/cloudflare.md#connect-chatgpt
 - "List my drives this week."
 - "Show my stats for the last 30 days."
 - "Show my charging sessions."
-- "Add my last drive to Roadbook." (with the [Roadbook](https://roadbook.us) connector: `export_drive`, then Roadbook `import_drive`)
+- "Add my last drive to Roadbook."
 - "What's my battery level?"
 - "Is there a software update available?"
 - "Are all the doors locked?"
+
+### Take your drives to Roadbook
+
+[Roadbook](https://roadbook.us) is where you plan electric road trips into the wild places of North America, together, and tell the story afterward. Add its connector next to this one and your recorded drives become part of the trip. Ask "Add my last drive to Roadbook" and Claude turns the drive into a private trip with a departure stop, a destination stop, the route and the stats. You never type a place name. The payload is in [docs/roadbook.md](docs/roadbook.md).
 
 ### Tools
 
