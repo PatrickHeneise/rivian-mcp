@@ -80,6 +80,9 @@ export function describeDrive(d: DriveFacts, open: boolean): string {
   ].join('\n')
 }
 
+const driveById = (db: D1Database, id: string) =>
+  db.prepare('SELECT * FROM drives WHERE id = ?').bind(id).first<DriveRow>()
+
 const dayStart = (date: string) => Date.parse(`${date}T00:00:00Z`)
 const dayEnd = (date: string) => Date.parse(`${date}T23:59:59.999Z`)
 
@@ -187,9 +190,7 @@ export function registerTools(server: McpServer, env: Env): void {
       annotations: { readOnlyHint: true },
     },
     async ({ id, max_points: maxPoints }) => {
-      const row = await env.DB.prepare('SELECT * FROM drives WHERE id = ?')
-        .bind(id)
-        .first<DriveRow>()
+      const row = await driveById(env.DB, id)
       if (!row) return text(`No drive with id ${id}.`)
       const points = await loadPoints(env.DB, id)
       const facts = await enrichDrive(env.DB, row, points)
@@ -231,9 +232,7 @@ export function registerTools(server: McpServer, env: Env): void {
     async ({ id, since, until, format, max_points: maxPoints, include_noise: includeNoise }) => {
       let rows: DriveRow[]
       if (id) {
-        const row = await env.DB.prepare('SELECT * FROM drives WHERE id = ?')
-          .bind(id)
-          .first<DriveRow>()
+        const row = await driveById(env.DB, id)
         if (!row) return text(`No drive with id ${id}.`)
         rows = [row]
       } else if (since || until) {
