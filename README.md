@@ -58,6 +58,7 @@ ChatGPT works through its developer mode connectors. I have not tested it. See [
 - "List my drives this week."
 - "Show my stats for the last 30 days."
 - "Show my charging sessions."
+- "Add my last drive to Roadbook." (with the [Roadbook](https://roadbook.us) connector: `export_drive`, then Roadbook `import_drive`)
 - "What's my battery level?"
 - "Is there a software update available?"
 - "Are all the doors locked?"
@@ -69,8 +70,9 @@ ChatGPT works through its developer mode connectors. I have not tested it. See [
 | `show_drive`                   | One drive with its route map and speed, energy and elevation charts |
 | `show_stats`                   | Totals and efficiency for a period, with every route on one map     |
 | `show_charging`                | Charging sessions with energy added, power and battery level curves |
-| `list_drives`                  | Recorded drives, newest first                                       |
-| `get_drive`                    | One drive with its route as GeoJSON                                 |
+| `list_drives`                  | Drives with places, local times, energy, elevation and quality      |
+| `get_drive`                    | One drive as a GeoJSON Feature with the route and all stats         |
+| `export_drive`                 | One drive or a date range as a Roadbook payload, GeoJSON or GPX     |
 | `recorder_status`              | Whether the recorder is signed in and connected                     |
 | `rivian_get_user_info`         | Your account, vehicles and software versions                        |
 | `rivian_get_vehicle_state`     | Live battery, doors, tires, location, climate and OTA status        |
