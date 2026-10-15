@@ -168,17 +168,6 @@ export async function reverseGeocodeMany(
   return found
 }
 
-/** Place info for one coordinate through the same cache. */
-export async function reverseGeocode(
-  db: D1Database,
-  lat: number,
-  lon: number,
-  fetchImpl: Fetch = fetch,
-): Promise<PlaceInfo | null> {
-  const map = await reverseGeocodeMany(db, [{ lat, lon }], fetchImpl)
-  return map.get(geocodeKey(lat, lon)) ?? null
-}
-
 /** Undefined on a network or server error, so the miss is not cached. */
 async function fetchPlace(
   lat: number,
