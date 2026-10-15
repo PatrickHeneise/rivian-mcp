@@ -88,6 +88,16 @@ test('driveEnergy is null when the first sample after a gap is outside the grace
   assert.equal(driveEnergy(late, PARKED_DRIVE.startedAt, PARKED_DRIVE.endedAt), null)
 })
 
+test('driveEnergy takes the start SoC from a first-ever sample inside the grace window', () => {
+  const start = 1_000_000
+  const end = start + 600_000
+  assert.deepEqual(driveEnergy([at(start + 60_000, 57.6), at(end, 55.7)], start, end), {
+    socStartPct: 57.6,
+    socEndPct: 55.7,
+    energyKwh: 2.7,
+  })
+})
+
 test('driveEnergy is null when every sample is after the drive ends', () => {
   const samples = [at(1_040_000, 70), at(1_080_000, 70.1)]
   assert.equal(driveEnergy(samples, 1_000_000, 1_030_000), null)

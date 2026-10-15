@@ -68,7 +68,7 @@ export interface DriveEnergy {
 /**
  * Energy a drive used, from the SoC drop times pack capacity. `samples` must be sorted by ts.
  * Start SoC is the last sample at or before the start, or the first sample within
- * SOC_START_GRACE_MS after it when the one before is older than SOC_LOOKBACK_MS. End SoC is the
+ * SOC_START_GRACE_MS after it when none lies within SOC_LOOKBACK_MS before it. End SoC is the
  * last sample at or before the end plus SOC_LOOKAHEAD_MS. Null when either side has no sample.
  */
 export function driveEnergy(
