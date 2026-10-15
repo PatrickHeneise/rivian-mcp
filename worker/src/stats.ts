@@ -4,6 +4,11 @@
 export const ELEVATION_NOISE_M = 3
 /** A battery sample older than this before a drive starts cannot give its start SoC. */
 export const SOC_LOOKBACK_MS = 30 * 60_000
+/**
+ * Without a recent sample before a drive, its start SoC may come from a sample up to this long
+ * after it starts. A parked vehicle stops sending battery state while SoC holds steady.
+ */
+export const SOC_START_GRACE_MS = 2 * 60_000
 /** A drive's end SoC may come from a sample up to this long after it ends. */
 export const SOC_LOOKAHEAD_MS = 60_000
 /** SoC samples further apart than this split two charging sessions. */
@@ -62,16 +67,17 @@ export interface DriveEnergy {
 
 /**
  * Energy a drive used, from the SoC drop times pack capacity. `samples` must be sorted by ts.
- * Start SoC is the last sample at or before the start, end SoC the last sample at or
- * before the end plus SOC_LOOKAHEAD_MS. Null when either side has no sample.
+ * Start SoC is the last sample at or before the start, or the first sample within
+ * SOC_START_GRACE_MS after it when none lies within SOC_LOOKBACK_MS before it. End SoC is the
+ * last sample at or before the end plus SOC_LOOKAHEAD_MS. Null when either side has no sample.
  */
 export function driveEnergy(
   samples: readonly BatterySample[],
   startedAt: number,
   endedAt: number,
 ): DriveEnergy | null {
-  const start = lastAtOrBefore(samples, startedAt)
-  if (!start || startedAt - start.ts > SOC_LOOKBACK_MS) return null
+  const start = startSample(samples, startedAt)
+  if (!start || start.ts > endedAt) return null
   const end = lastAtOrBefore(samples, endedAt + SOC_LOOKAHEAD_MS)
   const pack = end?.packEnergyKwh ?? start.packEnergyKwh
   if (!end || end.ts <= start.ts || endedAt - end.ts > SOC_LOOKBACK_MS || pack === null) return null
@@ -139,6 +145,13 @@ export function downsample<T>(items: readonly T[], max: number): T[] {
   if (items.length <= max) return [...items]
   const step = (items.length - 1) / (max - 1)
   return Array.from({ length: max }, (_, i) => items[Math.round(i * step)])
+}
+
+function startSample(samples: readonly BatterySample[], startedAt: number): BatterySample | null {
+  const before = lastAtOrBefore(samples, startedAt)
+  if (before && startedAt - before.ts <= SOC_LOOKBACK_MS) return before
+  const after = samples.find((s) => s.ts > startedAt)
+  return after && after.ts - startedAt <= SOC_START_GRACE_MS ? after : null
 }
 
 function lastAtOrBefore(samples: readonly BatterySample[], ts: number): BatterySample | null {
