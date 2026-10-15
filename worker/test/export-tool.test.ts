@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { describeDrive, registerTools } from '../src/mcp.ts'
-import { BOULDER_START_MS, boulderToLongmont, fakeD1 } from './support/d1.ts'
+import { BOULDER_START_MS, fakeD1 } from './support/d1.ts'
 import './support/cloudflare-stub.ts'
 
 type Content = { type: 'text'; text: string }[]
@@ -94,4 +94,12 @@ test('describeDrive labels each end of a cross-zone drive with its own zone', ()
     false,
   )
   assert.match(text, /14:00 MDT -> 15:00 PDT \(120 min\)/)
+})
+
+test('a date range export filters noise before the limit', async () => {
+  const { drive, call } = setup()
+  for (let i = 0; i < 51; i++) drive(`slow${i}`, T + i * HOUR, T + i * HOUR + HOUR / 2, 1000)
+  drive('valid', T + 60 * HOUR, T + 60 * HOUR + 60_000, 1000)
+  const out = await call({ since: '2026-10-13', until: '2026-10-20' })
+  assert.match(out.content[0].text, /"id":"valid"/)
 })
