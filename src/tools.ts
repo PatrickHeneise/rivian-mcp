@@ -23,7 +23,7 @@ export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
     try {
       return text(await run(await ctx.session()))
     } catch (err) {
-      return text((err as Error).message)
+      return { ...text((err as Error).message), isError: true }
     }
   }
 

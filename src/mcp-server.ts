@@ -50,15 +50,19 @@ function createServer() {
       const email = process.env.RIVIAN_EMAIL
       const password = process.env.RIVIAN_PASSWORD
       if (!email || !password) {
-        return text(
-          'Rivian credentials are not configured. Set RIVIAN_EMAIL and RIVIAN_PASSWORD in your MCP server settings.',
-        )
+        return {
+          ...text(
+            'Rivian credentials are not configured. Set RIVIAN_EMAIL and RIVIAN_PASSWORD in your MCP server settings.',
+          ),
+          isError: true,
+        }
       }
 
       try {
         await rivian.createCsrfToken(session)
         const { mfa } = await rivian.login(session, email, password)
         saveSession(session)
+        cachedVehicleId = null
 
         if (mfa) {
           return text(
@@ -68,7 +72,7 @@ function createServer() {
 
         return text('Signed in to Rivian successfully.')
       } catch (err) {
-        return text(`Couldn't sign in: ${(err as Error).message}`)
+        return { ...text(`Couldn't sign in: ${(err as Error).message}`), isError: true }
       }
     },
   )
@@ -84,21 +88,25 @@ function createServer() {
     async ({ otp_code }) => {
       const email = process.env.RIVIAN_EMAIL
       if (!email) {
-        return text('RIVIAN_EMAIL is not configured.')
+        return { ...text('RIVIAN_EMAIL is not configured.'), isError: true }
       }
 
       if (!rivian.needsOtp(session)) {
-        return text('No pending verification. Start with rivian_login first.')
+        return { ...text('No pending verification. Start with rivian_login first.'), isError: true }
       }
 
       try {
         await rivian.validateOtp(session, email, otp_code)
         saveSession(session)
+        cachedVehicleId = null
         return text('Signed in to Rivian successfully.')
       } catch (err) {
-        return text(
-          `Verification failed: ${(err as Error).message}. You may need to start over with rivian_login.`,
-        )
+        return {
+          ...text(
+            `Verification failed: ${(err as Error).message}. You may need to start over with rivian_login.`,
+          ),
+          isError: true,
+        }
       }
     },
   )
