@@ -230,8 +230,11 @@ export function buildStatus(input: StatusInput): StatusView {
   const powerState = str('powerState')?.toLowerCase() ?? null
   const gear = str('gearStatus')?.toLowerCase() ?? null
 
+  // Live gear and power win. The recorder keeps a drive open for minutes after the vehicle
+  // stops, so it only counts when the vehicle sends no gear signal.
+  const recorderDrive = input.drive !== null && gear === null && powerState !== 'sleep'
   const activity: Activity =
-    input.drive || (gear !== null && gear !== 'park' && powerState === 'go')
+    recorderDrive || (gear !== null && gear !== 'park' && powerState === 'go')
       ? 'driving'
       : chargeState === 'charging'
         ? 'charging'

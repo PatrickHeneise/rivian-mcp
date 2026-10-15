@@ -243,6 +243,21 @@ test('an open recorder drive means driving and hides the unlocked alert', () => 
   assert.equal(view.alerts.length, 0)
 })
 
+test('live parked and charging signals win over an open recorder drive', () => {
+  const drive = { startedAt: AT - 600_000, distanceM: 5400 }
+  const parked = buildStatus(
+    input({ powerState: 'ready', gearStatus: 'park', doorFrontLeftLocked: 'unlocked' }, { drive }),
+  )
+  assert.equal(parked.activity, 'parked')
+  assert.ok(parked.alerts.some((a) => a.text.startsWith('Unlocked')))
+  const charging = buildStatus(
+    input({ powerState: 'ready', gearStatus: 'park', chargerState: 'charging_active' }, { drive }),
+  )
+  assert.equal(charging.activity, 'charging')
+  const noGear = buildStatus(input({ powerState: 'ready', gearStatus: null }, { drive }))
+  assert.equal(noGear.activity, 'driving')
+})
+
 test('describeStatus gives the model the same facts', () => {
   const text = describeStatus(
     buildStatus(input({}, { parallaxBattery: { socPct: 48.6, rangeKm: 301 } })),
