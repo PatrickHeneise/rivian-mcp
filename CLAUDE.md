@@ -14,7 +14,7 @@ node --test test/format.test.ts                 # one test file
 npm run format                                  # biome check --write
 npm run build                                   # bundle src/ into dist/ (prepack runs it)
 npm start                                       # run the MCP server from source
-npm run worker:dev                              # wrangler dev; needs .dev.vars (copy .dev.vars.example)
+npm run worker:dev                              # wrangler dev; optional .dev.vars can pin RIVIAN_EMAIL
 npm run worker:types                            # regenerate worker/worker-configuration.d.ts after wrangler.jsonc changes
 npx wrangler deploy --dry-run                   # build the Worker without deploying
 ```
@@ -23,7 +23,7 @@ Source and tests are TypeScript, run directly by Node's type stripping. Node doe
 
 ## Architecture
 
-- **`src/mcp-server.ts`** — MCP server entry point (`@modelcontextprotocol/server` v2, `serveStdio`). Registers tools and formats responses for human readability. Every tool except `rivian_login` and `rivian_submit_otp` is `readOnlyHint: true`. A TTY on stdin runs the CLI instead.
+- **`src/mcp-server.ts`** — MCP server entry point (`@modelcontextprotocol/server` v2, `serveStdio`). Registers the local login tools and the shared query tools. Every tool except `rivian_login` and `rivian_submit_otp` is `readOnlyHint: true`. A TTY on stdin runs the CLI instead.
 - **`src/cli.ts`** — CLI entry point. Provides `ota` and `stats` commands for direct terminal use.
 - **`src/tools.ts`** — The seven live query tools, registered by both the stdio server and the Worker. `QueryContext` says where the session and vehicle come from.
 - **`src/rivian-api.ts`** — All Rivian API interaction. Plain ESM functions; each takes the `Session` as its first argument. Wraps Rivian's undocumented GraphQL API (schema referenced from `bretterer/rivian-python-client`).
@@ -64,7 +64,7 @@ Key headers: `Csrf-Token`, `A-Sess` (appSessionToken), `U-Sess` (userSessionToke
 
 ## Testing New Vehicle State Properties
 
-Probe unknown fields one at a time via `getVehicleState(vehicleId, new Set(['fieldName']))`. The API returns `GRAPHQL_VALIDATION_FAILED` for non-existent fields and `null` for fields that exist but have no data. See `references/vehicle-state-properties.md` for the full confirmed/rejected list.
+Probe unknown fields one at a time via `getVehicleState(session, vehicleId, new Set(['fieldName']))`. The API returns `GRAPHQL_VALIDATION_FAILED` for non-existent fields and `null` for fields that exist but have no data. See `.claude/skills/references/vehicle-state-properties.md` for the full confirmed/rejected list.
 External API docs: `../rivian-api/app/` (local clone of `kaedenbrinkman/rivian-api`).
 
 ## Adding New API Queries
@@ -73,7 +73,7 @@ External API docs: `../rivian-api/app/` (local clone of `kaedenbrinkman/rivian-a
 2. Add an exported function to `src/rivian-api.ts`
 3. Gateway queries use `authHeaders()`, charging queries use `chargingHeaders()`
 4. Use `vehicleState(id: $vehicleID)` for vehicle state — variable is `vehicleID`, not `vehicleId`
-5. Add formatting to `src/format.ts` and an MCP tool in `src/mcp-server.ts`
+5. Add formatting to `src/format.ts` and a shared query tool in `src/tools.ts`
 
 ## Cloudflare Worker (`worker/`)
 
@@ -85,7 +85,7 @@ Optional self-hosted recorder. This repo deploys nothing: users deploy their own
 - `worker/src/parallax.ts` decodes base64 protobuf with a hand-written wire reader. Field numbers from bretterer/rivian-python-client.
 - `worker/src/mcp.ts` registers the shared query tools plus `recorder_status`, `list_drives`, `get_drive` and `export_drive`. `enrich.ts` loads what those report beyond the drives row (places via `geocode.ts`, energy via `battery.ts`, elevation); `export.ts` builds the `roadbook.drive/1` payload (schema in `docs/roadbook.md`), GeoJSON and GPX; `simplify.ts` and `timezone.ts` are pure helpers. `apps.ts` registers the MCP Apps `show_drive`, `show_stats` and `show_charging`, rendered by the view in `worker/ui/` (bundled to `worker/dist/app.html` by `npm run worker:build`).
 - D1 schema: `worker/migrations/`. Timestamps are Unix epoch ms. Add new migrations as new files; never edit an applied one.
-- Worker code imports the core with relative paths (`../../src/rivian-api.ts`, `../../src/tools.ts`). Only pure modules have tests (`worker/test/`). `recorder.ts`, `mcp.ts` and `index.ts` depend on Worker bindings.
+- Worker code imports the core with relative paths (`../../src/rivian-api.ts`, `../../src/tools.ts`). `worker/test/` covers pure modules, recorder/login behavior with mocked bindings, and D1 queries against in-memory SQLite. These tests do not replace deployed Worker or live Rivian acceptance.
 - The sign-in cookies are `__Host-` and `Secure`. Browsers send them to `localhost`; most HTTP clients do not.
-- Palette: amber on forest green, defined in `worker/ui/app.css`, `STYLE` in `worker/src/oauth.ts` and `src/ui.ts`. Change them together. No Rivian logo, wordmark or brand colors. Every page says it is unofficial.
+- Palette: amber on forest green, defined in `worker/ui/app.css`, `STYLE` in `worker/src/oauth.ts` and `src/ui.ts`. Change them together. No Rivian logo, wordmark or brand colors. The sign-in pages say it is unofficial.
 

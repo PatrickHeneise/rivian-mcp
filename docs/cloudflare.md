@@ -21,7 +21,7 @@ The screenshots come from a test account where the Worker is named `rivian-cloud
 
 ## Cost
 
-Start with the free Cloudflare plan. Its limits for the part that stays connected to your Rivian (Durable Objects) are 100,000 requests and 13,000 GB-seconds per day ([Cloudflare pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)). I have not measured how much of that this uses. If recording stops partway through a day, you hit a limit. Workers Paid starts at $5 per month.
+Start with the free Cloudflare plan. Its limits for the part that stays connected to your Rivian (Durable Objects) are 100,000 requests and 13,000 GB-seconds per day ([Cloudflare pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)). I have not measured how much of that this uses. If recording stops, inspect `recorder_status` and the Worker logs: quota exhaustion, a lost connection or an expired Rivian session can all interrupt recording. Workers Paid starts at $5 per month.
 
 ## Step 1: Deploy
 
@@ -75,7 +75,7 @@ Claude, ChatGPT and Codex all open the same two pages from your copy when they c
 
    ![Step 2 of 2 on the sign-in page: the one-time code field](images/sign-in-step-2.png)
 
-Your password goes to Rivian only to sign in. Your copy does not store it.
+Your password passes through your Worker to Rivian only to sign in. Your copy does not store it.
 
 ## Connect Claude
 
@@ -169,12 +169,13 @@ Cloudflare deploys every change to your copy by itself.
 
 ## Your data
 
-- Everything stays in your Cloudflare account: drives in a D1 database, sign-in data in a KV store. To look at the rows, open **Storage & Databases**, then **D1**, then **rivian-mcp**, then **Studio**.
+- Recorded drives, points, charging samples and cached place labels are stored in your Cloudflare D1 database. The Recorder Durable Object stores the Rivian session, owner and pending sign-ins; KV stores connector OAuth state. Tool results are sent to the AI app you connect. To look at the rows, open **Storage & Databases**, then **D1**, then **rivian-mcp**, then **Studio**.
 
   ![Cloudflare's D1 Studio showing the charge_samples table of the rivian-mcp database](images/cloudflare-d1-charge-samples.png)
 
 - Place names for drive starts and ends come from [Photon](https://photon.komoot.io) (komoot's OpenStreetMap geocoder). The Worker sends it the coordinate rounded to about 100 m, with no account or drive id, and caches the answer in D1 so each place is asked once. Labels stop at the neighborhood or city; no street or house number is stored or shown.
-- Your Rivian password goes straight to Rivian and is not stored. The Worker keeps the session Rivian returns, the same way the Rivian app stays signed in.
+- Map views request basemap tiles from Esri (`server.arcgisonline.com`). Tile requests reveal the map area being viewed and the requesting client's IP address, but do not contain the drive payload.
+- Your Rivian password passes through your Worker to Rivian and is not stored. The Worker keeps the session Rivian returns, the same way the Rivian app stays signed in.
 - The first Rivian account that signs in owns your copy. After that, only its email can sign in. Sign-in attempts are limited to 10 per minute.
 - Until you sign in, anyone who finds your address can claim your copy with their own Rivian account. Connect right after you deploy. To pin the owner up front, add a `RIVIAN_EMAIL` secret: **Settings**, then **Variables and Secrets**.
 - Anyone who finds your address can try passwords for the owner's email, within that limit.
@@ -185,11 +186,9 @@ In the Cloudflare dashboard, open **Workers & Pages**, select **rivian-mcp**, th
 
 ### Deleting the Cloudflare account
 
-You cannot delete a Cloudflare account yourself. The dashboard has no delete for an account. The API refuses too: `DELETE /accounts/{id}` returns code 1002 "Forbidden. You are not allowed to delete this account", even with the Global API Key. Only Cloudflare support can delete an account. Open a case from Account, then Support.
+Cloudflare documents a self-service path under **My Profile**, then **Delete this user**, after removing domains, subscriptions and payment information. This deletes the profile and associated accounts, not just this Worker. See [Cloudflare's deletion guide](https://developers.cloudflare.com/fundamentals/user-profiles/delete-account/) for the exact scope and prerequisites.
 
-If the account is the only one under your login, there is one self-serve option: **My Profile**, then **Delete this user**. That deletes the user and every account the user owns. Cloudflare asks you to remove every domain, cancel every subscription and delete your payment method first. On an account that only ever ran a Worker, that step often fails with an error about active zones, because the Workers Free plan stays listed under **Billing**, then **Subscriptions**, with no way to cancel it. That also ends in a support ticket. The steps are in [Delete your Cloudflare account](https://developers.cloudflare.com/fundamentals/account/delete-account/).
-
-So do not create a throwaway Cloudflare account to try this project. Deploy into an account you keep and delete the Worker and its storage when you are done.
+In a project test account, deletion was blocked by an active Workers Free subscription with no cancellation control. If that happens, contact Cloudflare support. That observed failure does not mean all Worker accounts are undeletable. To remove only this project, follow [Remove it](#remove-it) instead.
 
 ## Set it up from a terminal instead
 
@@ -198,9 +197,9 @@ If you would rather not use GitHub or the browser, you need [Node.js 24](https:/
 ```sh
 git clone https://github.com/zentered-studios/rivian-mcp.git
 cd rivian-mcp
-npm install
+npm ci
 npx wrangler login
 npm run deploy
 ```
 
-`npm run deploy` creates the storage on the first run, deploys, and sets up the database. Answer `y` if it asks. To update later, run `git pull`, `npm install` and `npm run deploy` again.
+`npm run deploy` creates the storage on the first run, deploys, and sets up the database. Answer `y` if it asks. To update later, run `git pull`, `npm ci` and `npm run deploy` again.

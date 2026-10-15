@@ -1,14 +1,16 @@
 # Drive payload for Roadbook
 
-`export_drive` returns a JSON document that Roadbook's `import_drive` MCP tool accepts unchanged. One call on each side turns a recorded drive into a private Roadbook trip with a departure stop, a destination stop, the route and the stats. This page is the contract. Roadbook keeps the same text at `docs/specs/import-drive.md`.
+`export_drive` returns a JSON document designed for a Roadbook `import_drive` MCP tool. This page documents the exporter implemented in this repository. Importing requires a compatible Roadbook connector; its tool availability and deployed behavior are not verified here.
 
 ## Flow
 
 1. `list_drives` (optional) to find the drive. Each line carries the place labels and local times, so no second lookup is needed to pick one.
-2. `export_drive` with the drive id, or with `since` and `until` for a batch. No arguments exports the latest drive.
+2. `export_drive` with the drive id, or with `since` and `until` for a batch. No arguments exports the latest completed, non-noise drive. An in-progress drive cannot be exported.
 3. Roadbook `import_drive` with the payload as `drive` (single) or `drives` (batch), plus an optional `tripId` to add to an existing trip and an optional `precision`.
 
-The agent never has to name a place. Roadbook resolves the start and end coordinates to the nearest city or neighborhood itself.
+The payload includes start and end coordinates and settlement-level labels, so a compatible importer does not need the user to type place names.
+
+The JSON below illustrates the fields, with a two-point route for brevity; it is not a measured recording. For complete tool arguments, see [examples](examples.md).
 
 ## Schema `roadbook.drive/1`
 
@@ -40,7 +42,7 @@ The agent never has to name a place. Roadbook resolves the start and end coordin
     "neighborhood": null, "city": "Longmont", "region": "Colorado",
     "country": "United States", "country_code": "US"
   },
-  "route": { "type": "LineString", "coordinates": [[-105.2845, 40.0539], [-105.2801, 40.0552]] },
+  "route": { "type": "LineString", "coordinates": [[-105.2845, 40.0539], [-105.1645, 40.1495]] },
   "quality": {
     "point_count": 227,
     "points_per_km": 9.3,
@@ -73,18 +75,16 @@ The agent never has to name a place. Roadbook resolves the start and end coordin
 
 ## Batch `roadbook.drives/1`
 
-```json
-{ "schema": "roadbook.drives/1", "drives": [ { "schema": "roadbook.drive/1", "...": "..." } ] }
-```
+A batch wraps complete single-drive payloads in `{ "schema": "roadbook.drives/1", "drives": [...] }`. Pass the `drives` array to Roadbook, not the wrapper.
 
-Drives are in start order. A date range stops after 50 drives and says so in the text; narrow the range for the rest.
+Dates filter the drive start in UTC; both boundary dates are inclusive. Drives are in start order. A date range stops after 50 drives and says so in the text; narrow the range for the rest.
 
 ## Privacy
 
 Drive starts and ends are often home or work.
 
-- Roadbook defaults every imported trip to private.
-- Roadbook stores the precise start and end coordinates only on the private drive leg. The public place of each stop is the city or neighborhood centroid, and `import_drive` takes `precision: "city"` to keep nothing finer than that at all.
+- Exported payloads include precise start and end coordinates. Rivian MCP does not redact those coordinates or control how another service stores them.
+- The intended Roadbook import contract uses private trips and settlement-level public stops. Verify the importer's current privacy settings and support for `precision: "city"` before sending a payload.
 - Labels on this side stop at the neighborhood, so a label pasted into a chat does not name a street.
 - The geocoder (Photon, komoot) receives the coordinate rounded to about 100 m and nothing else.
 

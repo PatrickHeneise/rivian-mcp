@@ -1,6 +1,6 @@
 # Rivian MCP
 
-Ask Claude or ChatGPT about your Rivian and every drive you take. It runs in your own Cloudflare account, so your data stays with you.
+Ask Claude or ChatGPT about your Rivian and every drive you take. It runs in your own Cloudflare account, so you control the recorded data. Tool results go to the AI app you connect; see [data handling](docs/cloudflare.md#your-data).
 
 It only reads from Rivian. It sends no commands to your vehicle and changes no settings. This project is unofficial and not affiliated with or endorsed by Rivian.
 
@@ -10,7 +10,7 @@ It only reads from Rivian. It sends no commands to your vehicle and changes no s
 
 You need:
 
-- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account. Use one you keep. A Cloudflare account that has run a Worker often cannot be deleted afterwards. See [Remove it](docs/cloudflare.md#remove-it).
+- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account. See [cost](docs/cloudflare.md#cost) and [removal](docs/cloudflare.md#remove-it).
 - A free [GitHub](https://github.com/signup) account. The Deploy button asks you to connect it, and Cloudflare keeps your copy of the project there.
 - Your Rivian email and password, and the phone or email that gets Rivian's one-time code.
 
@@ -67,7 +67,7 @@ ChatGPT and Codex work too: [Connect ChatGPT](docs/cloudflare.md#connect-chatgpt
 
 ### Take your drives to Roadbook
 
-[Roadbook](https://roadbook.us) is where you plan electric road trips into the wild places of North America, together, and tell the story afterward. Add its connector next to this one and your recorded drives become part of the trip. Ask "Add my last drive to Roadbook" and Claude turns the drive into a private trip with a departure stop, a destination stop, the route and the stats. You never type a place name. The payload is in [docs/roadbook.md](docs/roadbook.md).
+[Roadbook](https://roadbook.us) is where you plan electric road trips into the wild places of North America, together, and tell the story afterward. This server exports recorded drives with their route, places and stats in the `roadbook.drive/1` format. Importing them requires a Roadbook connector that exposes `import_drive`; availability and privacy behavior on that side must be checked separately. The export contract is in [docs/roadbook.md](docs/roadbook.md).
 
 ### Tools
 
@@ -109,7 +109,7 @@ rivian ota
 rivian stats
 ```
 
-The CLI reads `RIVIAN_EMAIL` and `RIVIAN_PASSWORD` from the environment, or asks for them.
+The CLI reads `RIVIAN_EMAIL` and `RIVIAN_PASSWORD` from the environment, or asks for them. Password and one-time-code prompts require an interactive terminal.
 
 ### Local MCP server
 
@@ -130,7 +130,7 @@ Add to `~/.claude.json` or your project's `.mcp.json`:
   "mcpServers": {
     "rivian": {
       "command": "npx",
-      "args": ["rivian-mcp"],
+      "args": ["-y", "rivian-mcp"],
       "env": {
         "RIVIAN_EMAIL": "your@email.com",
         "RIVIAN_PASSWORD": "your-password"
@@ -157,6 +157,26 @@ If you are thinking about getting a Rivian, my referral code gets you benefits o
 [Get a Rivian R1 with referral benefits](https://rivian.com/configurations/list?reprCode=PATRICK4568756)
 
 ## Development
+
+```sh
+git clone https://github.com/zentered-studios/rivian-mcp.git
+cd rivian-mcp
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npx wrangler deploy --dry-run
+```
+
+Use Node.js 24 or newer. Tests use fixtures, mocked requests and an in-memory SQLite database; they do not need Rivian credentials or a Cloudflare account. The dry run builds the Worker and embedded views without deploying.
+
+For local Worker development, run `npm run worker:dev` and apply the schema with `npx wrangler d1 migrations apply DB --local`. No `.dev.vars` file is required. To pin the owner, create an ignored `.dev.vars` containing `RIVIAN_EMAIL="you@example.com"`. Hosted AI connectors need a publicly reachable HTTPS Worker; localhost is for development.
+
+The shared live-query tools are in `src/tools.ts`; local login tools are in `src/mcp-server.ts`. Recorder tools are in `worker/src/mcp.ts`, and the embedded views are in `worker/ui/`. Add a regression test for behavior changes. Rivian access must remain read-only apart from authentication.
+
+See [tool-call examples](docs/examples.md) for argument shapes and [the review report](docs/codebase-review.md) for findings and verification limits.
+
 
 The Claude Code plugin teaches Claude this codebase and the Rivian API: confirmed vehicle state fields, the auth flow and the formatters.
 
