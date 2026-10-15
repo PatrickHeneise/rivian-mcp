@@ -497,7 +497,7 @@ export function formatVehicleState(state: VehicleState) {
     const loc = state.gnssLocation
     const alt = state.gnssAltitude?.value
     const bearing = num('gnssBearing')
-    if (loc?.latitude && loc?.longitude) {
+    if (loc?.latitude != null && loc.longitude != null) {
       lines.push(section('Location'))
       lines.push(`  ${c.dim('📍')} ${loc.latitude}, ${loc.longitude}`)
       if (alt !== null && alt !== undefined) lines.push(kv('Altitude', alt))

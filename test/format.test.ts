@@ -397,3 +397,14 @@ describe('formatUserInfo', () => {
     assert.match(out, /No vehicles/)
   })
 })
+
+test('formatVehicleState preserves locations on the equator and prime meridian', () => {
+  for (const [latitude, longitude] of [
+    [0, 45],
+    [45, 0],
+    [0, 0],
+  ]) {
+    const output = formatVehicleState({ gnssLocation: { latitude, longitude } })
+    assert.ok(output.includes(`${latitude}, ${longitude}`))
+  }
+})
