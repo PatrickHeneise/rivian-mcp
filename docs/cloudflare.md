@@ -17,6 +17,8 @@ This is unofficial. It is not affiliated with or endorsed by Rivian. It only rea
 
 Plan on 15 minutes.
 
+The screenshots come from a test account where the Worker is named `rivian-cloud`. Yours is `rivian-mcp`, so your address starts with `rivian-mcp`.
+
 ## Cost
 
 Start with the free Cloudflare plan. Its limits for the part that stays connected to your Rivian (Durable Objects) are 100,000 requests and 13,000 GB-seconds per day ([Cloudflare pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)). I have not measured how much of that this uses. If recording stops partway through a day, you hit a limit. Workers Paid starts at $5 per month.
