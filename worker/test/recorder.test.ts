@@ -13,6 +13,7 @@ const { Recorder } = await import('../src/recorder.ts')
 interface Internals {
   onMessage(ws: unknown, vehicles: unknown[], data: string): Promise<void>
   flush(vehicleId: string): Promise<void>
+  onCharging(vehicleId: string, ts: number, rvm: string, payload: string): Promise<void>
   flushAll(): Promise<void>
   states: Map<string, { drive: { id: string; endedAt: number | null } | null }>
   alarm(): Promise<void>
@@ -293,4 +294,58 @@ test('the owner stays after RIVIAN_EMAIL is removed', async () => {
     { DB: {}, RIVIAN_EMAIL: undefined } as never,
   )
   assert.equal(await restarted.ownerEmail(), 'owner@example.com')
+})
+
+test('a charging sample retries after its D1 write fails', async () => {
+  let attempts = 0
+  const db = {
+    prepare: () => ({
+      bind: () => ({
+        run: async () => {
+          if (++attempts === 1) throw new Error('D1 unavailable')
+        },
+      }),
+    }),
+  }
+  const recorder = new Recorder({} as never, { DB: db } as never) as unknown as Internals
+  const write = () => recorder.onCharging('v', 1_000, 'charging.session.status', 'CAE=')
+  await assert.rejects(write(), /D1 unavailable/)
+  await write()
+  assert.equal(attempts, 2)
+  await write()
+  assert.equal(attempts, 2, 'only a successful write advances the sampling watermark')
+})
+
+test('a restored drive ignores GPS replay older than its persisted progress', async () => {
+  const t = await setup()
+  await openDrive(t, 1_000, 6_000)
+  await t.gps(0.002, 11_000)
+  // Movement updates can be newer than the most recent stored route point.
+  await t.gps(0.003, 13_000)
+  await t.internals.flush('v')
+  const before = await t.storage.get('drive:v')
+  const restarted = new Recorder(
+    { storage: t.storage, waitUntil() {} } as never,
+    { DB: {} } as never,
+  ) as unknown as Internals
+  await restarted.onMessage(
+    { send() {} },
+    [VEHICLE],
+    JSON.stringify({
+      id: 'state:v',
+      type: 'next',
+      payload: {
+        data: {
+          vehicleState: {
+            gnssLocation: {
+              latitude: 0,
+              longitude: 0,
+              timeStamp: new Date(12_000).toISOString(),
+            },
+          },
+        },
+      },
+    }),
+  )
+  assert.deepEqual(restarted.states.get('v')?.drive, before)
 })

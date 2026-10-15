@@ -419,6 +419,10 @@ export class Recorder extends DurableObject<Env> {
   private async onPoint(vehicleId: string, point: Point): Promise<void> {
     const state = this.state(vehicleId)
     if (isOlderPoint(state.lastPoint, point)) return
+    // The in-memory point is lost on eviction, but the persisted drive still provides a
+    // watermark. Replays must not move its last-moving position or distance backwards.
+    if (state.drive && point.ts < Math.max(state.drive.lastStoredAt, state.drive.lastMovingAt))
+      return
     if (state.closing || (state.drive && shouldClose(state.drive, point.ts, null))) {
       await this.finishDrive(vehicleId)
     }
@@ -451,12 +455,13 @@ export class Recorder extends DurableObject<Env> {
     const data = JSON.stringify(decoded)
     const key = `${vehicleId} ${rvm}`
     if (!shouldSample(rvm, this.lastSamples.get(key), ts, data)) return
-    this.lastSamples.set(key, { ts, data })
     await this.env.DB.prepare(
       'INSERT OR IGNORE INTO charge_samples (vehicle_id, ts, rvm, data, payload) VALUES (?, ?, ?, ?, ?)',
     )
       .bind(vehicleId, ts, rvm, data, payload)
       .run()
+    // Failed writes must remain eligible if Rivian sends the sample again.
+    this.lastSamples.set(key, { ts, data })
   }
 
   private async onClose(ws: WebSocket, code: number, reason: string): Promise<void> {
