@@ -53,11 +53,14 @@ const MAX_NAME_LENGTH = 80
  */
 function cleanName(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
-  const text = value
-    .replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  let plain = ''
+  for (const ch of value) {
+    const code = ch.codePointAt(0) ?? 0
+    const control =
+      code < 0x20 || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029
+    plain += control ? ' ' : ch
+  }
+  const text = plain.replace(/\s+/g, ' ').trim()
   if (!text) return undefined
   return text.length > MAX_NAME_LENGTH ? `${text.slice(0, MAX_NAME_LENGTH - 1)}…` : text
 }
