@@ -10,11 +10,12 @@ import {
   type DrivePayload,
   drivePayload,
   type RoutePoint,
+  SPARSE_POINTS_PER_KM,
   toGeoJsonCollection,
   toGeoJsonFeature,
   toGpx,
 } from './export.ts'
-import { MIN_DRIVE_M } from './stats.ts'
+import { MIN_AVG_SPEED_MPS, MIN_DRIVE_M } from './stats.ts'
 import { localIso, timezoneAt, utcIso, zoneAbbreviation } from './timezone.ts'
 
 export type { DriveRow } from './enrich.ts'
@@ -47,13 +48,17 @@ const maxPointsArg = (fallback: number) =>
 /** Human summary of a drive for the text content: places, local times, stats, quality. */
 export function describeDrive(d: DriveFacts, open: boolean): string {
   const tz = timezoneAt(d.startLat, d.startLon)
+  const endTz = timezoneAt(d.endLat, d.endLon) ?? tz
   const minutes = Math.round((d.endedAt - d.startedAt) / 60_000)
   const startLocal = localIso(d.startedAt, tz)
-  const endLocal = localIso(d.endedAt, timezoneAt(d.endLat, d.endLon) ?? tz)
+  const endLocal = localIso(d.endedAt, endTz)
+  const startZone = zoneAbbreviation(d.startedAt, tz)
+  const endZone = zoneAbbreviation(d.endedAt, endTz)
   const sameDay = startLocal.slice(0, 10) === endLocal.slice(0, 10)
+  const startClock = startLocal.slice(0, 16).replace('T', ' ')
   const when = open
-    ? `${startLocal.slice(0, 16).replace('T', ' ')} ${zoneAbbreviation(d.startedAt, tz)} -> in progress`
-    : `${startLocal.slice(0, 16).replace('T', ' ')} -> ${(sameDay ? endLocal.slice(11, 16) : endLocal.slice(0, 16)).replace('T', ' ')} ${zoneAbbreviation(d.endedAt, tz)} (${minutes} min)`
+    ? `${startClock} ${startZone} -> in progress`
+    : `${startClock}${startZone === endZone ? '' : ` ${startZone}`} -> ${(sameDay ? endLocal.slice(11, 16) : endLocal.slice(0, 16)).replace('T', ' ')} ${endZone} (${minutes} min)`
   const place = (p: typeof d.start, lat: number, lon: number) =>
     p?.label ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`
   const stats = [
@@ -69,7 +74,7 @@ export function describeDrive(d: DriveFacts, open: boolean): string {
   const perKm = d.distanceM > 0 ? d.pointCount / (d.distanceM / 1000) : 0
   const quality = [`${d.pointCount} points (${perKm.toFixed(1)}/km)`]
   if (d.noise) quality.push('NOISE: parked GPS drift, not a drive')
-  else if (perKm < 3 && d.pointCount > 0) quality.push('SPARSE: coarse route')
+  else if (perKm < SPARSE_POINTS_PER_KM && d.pointCount > 0) quality.push('SPARSE: coarse route')
   return [
     d.id,
     `  ${place(d.start, d.startLat, d.startLon)} -> ${place(d.end, d.endLat, d.endLon)}`,
@@ -78,6 +83,12 @@ export function describeDrive(d: DriveFacts, open: boolean): string {
     `  ${quality.join(', ')}`,
   ].join('\n')
 }
+
+const driveById = (db: D1Database, id: string) =>
+  db.prepare('SELECT * FROM drives WHERE id = ?').bind(id).first<DriveRow>()
+
+/** The speed half of `isNoise` for closed drives, so a LIMIT never counts rows it would drop. */
+const MIN_SPEED_SQL = `(ended_at <= started_at OR distance_m >= (ended_at - started_at) / 1000.0 * ${MIN_AVG_SPEED_MPS})`
 
 const dayStart = (date: string) => Date.parse(`${date}T00:00:00Z`)
 const dayEnd = (date: string) => Date.parse(`${date}T23:59:59.999Z`)
@@ -186,9 +197,7 @@ export function registerTools(server: McpServer, env: Env): void {
       annotations: { readOnlyHint: true },
     },
     async ({ id, max_points: maxPoints }) => {
-      const row = await env.DB.prepare('SELECT * FROM drives WHERE id = ?')
-        .bind(id)
-        .first<DriveRow>()
+      const row = await driveById(env.DB, id)
       if (!row) return text(`No drive with id ${id}.`)
       const points = await loadPoints(env.DB, id)
       const facts = await enrichDrive(env.DB, row, points)
@@ -230,25 +239,31 @@ export function registerTools(server: McpServer, env: Env): void {
     async ({ id, since, until, format, max_points: maxPoints, include_noise: includeNoise }) => {
       let rows: DriveRow[]
       if (id) {
-        const row = await env.DB.prepare('SELECT * FROM drives WHERE id = ?')
-          .bind(id)
-          .first<DriveRow>()
+        const row = await driveById(env.DB, id)
         if (!row) return text(`No drive with id ${id}.`)
+        if (row.ended_at === null)
+          return text(`Drive ${id} is still in progress; export it once it has ended.`)
         rows = [row]
       } else if (since || until) {
         const from = since ? dayStart(since) : 0
         const to = until ? dayEnd(until) : Number.MAX_SAFE_INTEGER
         const { results } = await env.DB.prepare(
-          'SELECT * FROM drives WHERE started_at BETWEEN ? AND ? AND ended_at IS NOT NULL AND distance_m >= ? ORDER BY started_at ASC LIMIT ?',
+          `SELECT * FROM drives WHERE started_at BETWEEN ? AND ? AND ended_at IS NOT NULL AND distance_m >= ? AND (? OR ${MIN_SPEED_SQL}) ORDER BY started_at ASC LIMIT ?`,
         )
-          .bind(from, to, includeNoise ? 0 : MIN_DRIVE_M, MAX_EXPORT_DRIVES + 1)
+          .bind(
+            from,
+            to,
+            includeNoise ? 0 : MIN_DRIVE_M,
+            includeNoise ? 1 : 0,
+            MAX_EXPORT_DRIVES + 1,
+          )
           .all<DriveRow>()
         rows = results
       } else {
         const { results } = await env.DB.prepare(
-          'SELECT * FROM drives WHERE ended_at IS NOT NULL AND distance_m >= ? ORDER BY started_at DESC LIMIT 1',
+          `SELECT * FROM drives WHERE ended_at IS NOT NULL AND distance_m >= ? AND (? OR ${MIN_SPEED_SQL}) ORDER BY started_at DESC LIMIT 1`,
         )
-          .bind(includeNoise ? 0 : MIN_DRIVE_M)
+          .bind(includeNoise ? 0 : MIN_DRIVE_M, includeNoise ? 1 : 0)
           .all<DriveRow>()
         rows = results
       }
@@ -266,11 +281,17 @@ export function registerTools(server: McpServer, env: Env): void {
       if (drives.length === 0)
         return text('Only GPS noise in that selection; pass include_noise to export it.')
       const single = id !== undefined || (!since && !until)
-      const note = truncated
-        ? `\n\nStopped at ${MAX_EXPORT_DRIVES} drives; narrow the date range for the rest.`
-        : ''
+      const notice = truncated
+        ? [
+            {
+              type: 'text' as const,
+              text: `Stopped at ${MAX_EXPORT_DRIVES} drives; narrow the date range for the rest.`,
+            },
+          ]
+        : []
 
-      if (format === 'gpx') return text(toGpx(drives, maxPoints) + note)
+      if (format === 'gpx')
+        return { content: [...text(toGpx(drives, maxPoints)).content, ...notice] }
       const payloads = drives.map((d) => d.payload)
       const body =
         format === 'geojson'
@@ -280,7 +301,10 @@ export function registerTools(server: McpServer, env: Env): void {
           : single
             ? payloads[0]
             : { schema: DRIVES_SCHEMA, drives: payloads }
-      return { ...text(JSON.stringify(body) + note), structuredContent: body }
+      return {
+        content: [...text(JSON.stringify(body)).content, ...notice],
+        structuredContent: body,
+      }
     },
   )
 }

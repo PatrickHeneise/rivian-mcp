@@ -88,7 +88,13 @@ test('drivePayload says what is missing', () => {
     'No altitude data; elevation is unknown.',
   ])
   const junk = drivePayload(
-    facts({ distanceM: 90, pointCount: 1, noise: true }),
+    facts({
+      distanceM: 90,
+      pointCount: 1,
+      noise: true,
+      endLat: BOULDER.lat,
+      endLon: BOULDER.lon,
+    }),
     points.slice(0, 1),
     100,
   )
@@ -127,4 +133,16 @@ test('toGpx writes one simplified track with time and elevation', () => {
   assert.ok(gpx.includes('<ele>1655</ele>'))
   assert.ok(gpx.includes('<name>A &#38; B &#60;Town&#62; to Longmont, Colorado</name>'))
   assert.ok(gpx.includes('<src>rivian:d-boulder</src>'))
+})
+
+test('drivePayload route starts at the drive start and ends at the drive end', () => {
+  const inner = points.slice(5, 20)
+  const p = drivePayload(facts(), inner, 100)
+  const coords = p.route.coordinates
+  assert.deepEqual(coords[0], [p.start.lng, p.start.lat])
+  assert.deepEqual(coords.at(-1), [p.end.lng, p.end.lat])
+  const tiny = drivePayload(facts(), inner, 2)
+  assert.equal(tiny.route.coordinates.length, 2)
+  assert.deepEqual(tiny.route.coordinates[0], [p.start.lng, p.start.lat])
+  assert.deepEqual(tiny.route.coordinates[1], [p.end.lng, p.end.lat])
 })

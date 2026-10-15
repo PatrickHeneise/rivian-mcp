@@ -92,7 +92,12 @@ export function drivePayload(
 ): DrivePayload {
   const timezone = timezoneAt(d.startLat, d.startLon)
   const endTimezone = timezoneAt(d.endLat, d.endLon)
+  const start: LonLat = [round(d.startLon, 6), round(d.startLat, 6)]
+  const end: LonLat = [round(d.endLon, 6), round(d.endLat, 6)]
   const coords = points.map((p): LonLat => [round(p.lon, 6), round(p.lat, 6)])
+  // The drive row is authoritative for its ends; the stored track can miss the first or last fix.
+  if (!sameCoord(coords[0], start)) coords.unshift(start)
+  if (!sameCoord(coords.at(-1), end)) coords.push(end)
   const route = simplifyIndices(coords, maxPoints).map((i) => coords[i])
   const distanceKm = d.distanceM / 1000
   const notes: string[] = []
@@ -129,6 +134,10 @@ export function drivePayload(
       notes,
     },
   }
+}
+
+function sameCoord(a: LonLat | undefined, b: LonLat): boolean {
+  return a !== undefined && a[0] === b[0] && a[1] === b[1]
 }
 
 function endPoint(lat: number, lon: number, place: PlaceInfo | null): EndPoint {
