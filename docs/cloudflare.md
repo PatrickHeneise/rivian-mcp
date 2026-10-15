@@ -92,6 +92,13 @@ Try it: in a new chat, turn on the Rivian connector in the **+** menu and ask "I
 
 ![Claude showing a recorded drive with its route on a map, distance, speed and elevation](images/claude-show-drive.png)
 
+The same card works in the Claude mobile app. Ask "Show me the last drive" and scroll for the map and the elevation and speed charts.
+
+<p>
+  <img src="images/claude-mobile-drive-card.png" width="300" alt="The Claude iPhone app showing the drive card with distance, speed and elevation tiles">
+  <img src="images/claude-mobile-drive-charts.png" width="300" alt="The Claude iPhone app showing the elevation and speed charts of the same drive">
+</p>
+
 On Team and Enterprise plans, an owner adds the connector under **Organization settings**, then **Connectors**. Each member then selects **Connect**.
 
 ## Connect ChatGPT
