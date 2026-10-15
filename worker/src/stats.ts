@@ -150,7 +150,7 @@ export function downsample<T>(items: readonly T[], max: number): T[] {
 function startSample(samples: readonly BatterySample[], startedAt: number): BatterySample | null {
   const before = lastAtOrBefore(samples, startedAt)
   if (before && startedAt - before.ts <= SOC_LOOKBACK_MS) return before
-  const after = before ? samples[samples.indexOf(before) + 1] : samples[0]
+  const after = samples.find((s) => s.ts > startedAt)
   return after && after.ts - startedAt <= SOC_START_GRACE_MS ? after : null
 }
 
