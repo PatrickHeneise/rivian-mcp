@@ -45,8 +45,8 @@ export interface StatsView {
   minAvgSpeedMps: number
   skipped: number
   drives: (DriveSummary & { route: RoutePoint[] })[]
-  /** Pack capacity over time, one sample per day. */
-  capacity: Series
+  /** Pack capacity over time, one sample per day for each vehicle. */
+  capacity: { vehicleId: string; points: Series }[]
 }
 
 export interface ChargeSessionView {

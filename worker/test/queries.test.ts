@@ -50,6 +50,26 @@ test('daily capacity keeps the last reading per day', () => {
   )
 })
 
+test('daily capacity keeps each vehicle separate within the same day', () => {
+  const d = db()
+  sample(d, 1000, { packEnergyKwh: 100 }, 'v1')
+  sample(d, 3000, { packEnergyKwh: 101 }, 'v1')
+  sample(d, 2000, { packEnergyKwh: 140 }, 'v2')
+  sample(d, 4000, { packEnergyKwh: 141 }, 'v2')
+  sample(d, DAY + 5, { packEnergyKwh: 102 }, 'v1')
+  sample(d, DAY + 6, { packEnergyKwh: 142 }, 'v2')
+  const rows = d.prepare(DAILY_CAPACITY_SQL).all('battery', 0, DAY)
+  assert.deepEqual(
+    rows.map((r) => [r.vehicle_id, r.ts, r.kwh]),
+    [
+      ['v1', 3000, 101],
+      ['v1', DAY + 5, 102],
+      ['v2', 4000, 141],
+      ['v2', DAY + 6, 142],
+    ],
+  )
+})
+
 test('stats points keep one point per bucket and drive', () => {
   const d = db()
   drive(d, 'd1', 0, null)

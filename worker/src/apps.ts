@@ -271,14 +271,17 @@ async function chargingView(db: D1Database, days: number): Promise<ChargingView>
   return { kind: 'charging', from, to, sessions }
 }
 
-/** The last pack capacity reading of each UTC day, over all vehicles. */
-async function dailyCapacity(db: D1Database, from: number): Promise<Series> {
+/** The last pack capacity reading of each UTC day, separately for each vehicle. */
+async function dailyCapacity(db: D1Database, from: number): Promise<StatsView['capacity']> {
   // The bare columns come from the MAX(ts) row of each day.
   const { results } = await db
     .prepare(DAILY_CAPACITY_SQL)
     .bind(RVM_BATTERY, from, DAY_MS)
-    .all<{ ts: number; kwh: number }>()
-  return results.map((r) => [r.ts, r.kwh])
+    .all<{ vehicle_id: string; ts: number; kwh: number }>()
+  return [...Map.groupBy(results, (r) => r.vehicle_id)].map(([vehicleId, rows]) => ({
+    vehicleId,
+    points: rows.map((r): [number, number] => [r.ts, r.kwh]),
+  }))
 }
 
 function summary(d: DriveRow, energyKwh: number | null, elev: Elevation | null): DriveSummary {

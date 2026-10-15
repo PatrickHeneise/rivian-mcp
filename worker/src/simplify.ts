@@ -7,13 +7,8 @@ export type LonLat = [number, number]
  * Douglas-Peucker down to at most `maxPoints`, keeping the first and last point. The
  * tolerance is found by bisection on the perpendicular distance (in degrees, with longitude
  * scaled by the cosine of the latitude), so the result keeps the shape rather than every Nth
- * fix. Returns a copy of the input when it already fits.
+ * fix. Returns ascending indices into the input, preserving time and altitude at each fix.
  */
-export function simplify(points: readonly LonLat[], maxPoints: number): LonLat[] {
-  return simplifyIndices(points, maxPoints).map((i) => points[i])
-}
-
-/** Indices into `points` that `simplify` would keep, ascending. */
 export function simplifyIndices(points: readonly LonLat[], maxPoints: number): number[] {
   if (points.length <= Math.max(2, maxPoints)) return points.map((_, i) => i)
   const keep = new Set<number>()

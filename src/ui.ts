@@ -7,13 +7,9 @@ export const c = {
   brand: chalk.hex('#f0b43c'),
   dim: chalk.dim,
   bold: chalk.bold,
-  white: chalk.white,
   red: chalk.red,
   yellow: chalk.yellow,
   green: chalk.hex('#2f7a4f'),
-  cyan: chalk.cyan,
-  gray: chalk.gray,
-  blue: chalk.blue,
 }
 
 // ── Logo ─────────────────────────────────────────────────────────────

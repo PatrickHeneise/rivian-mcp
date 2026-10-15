@@ -226,7 +226,7 @@ export function registerTools(server: McpServer, env: Env): void {
       inputSchema: z.object({
         id: z.string().optional().describe('Drive id from list_drives; omit for the latest drive'),
         since: dateArg('Export every drive from this date'),
-        until: dateArg('Export every drive up to this date (defaults to today when since is set)'),
+        until: dateArg('Export every drive up to this date (no upper date bound when omitted)'),
         format: z.enum(['roadbook', 'geojson', 'gpx']).default('roadbook'),
         max_points: maxPointsArg(DEFAULT_EXPORT_POINTS),
         include_noise: z

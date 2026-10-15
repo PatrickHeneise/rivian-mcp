@@ -1,11 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import {
-  geocodeKey,
-  parsePhotonReverse,
-  reverseGeocode,
-  reverseGeocodeMany,
-} from '../src/geocode.ts'
+import { geocodeKey, parsePhotonReverse, reverseGeocodeMany } from '../src/geocode.ts'
 import { BOULDER, fakeD1, LONGMONT } from './support/d1.ts'
 
 const photon = (properties: Record<string, unknown>) => ({
@@ -113,19 +108,19 @@ test('reverseGeocodeMany dedupes, caches hits and misses, and does not cache err
   assert.ok(calls[0].startsWith(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&limit=1`))
 
   calls.length = 0
-  const again = await reverseGeocode(db, LONGMONT.lat, LONGMONT.lon, fetchImpl)
-  assert.equal(again, null)
+  const again = await reverseGeocodeMany(db, [LONGMONT], fetchImpl)
+  assert.equal(again.get(geocodeKey(LONGMONT.lat, LONGMONT.lon)), null)
   assert.equal(calls.length, 0, 'a cached miss is not asked again')
 
   status = 503
-  const failed = await reverseGeocode(db, 39.7392, -104.9903, fetchImpl)
-  assert.equal(failed, null)
+  const failed = await reverseGeocodeMany(db, [{ lat: 39.7392, lon: -104.9903 }], fetchImpl)
+  assert.equal(failed.has(geocodeKey(39.7392, -104.9903)), false)
   assert.equal(
     sqlite.prepare('SELECT count(*) AS n FROM geocodes').get()?.n,
     2,
     'errors are not cached',
   )
   status = 200
-  await reverseGeocode(db, 39.7392, -104.9903, fetchImpl)
+  await reverseGeocodeMany(db, [{ lat: 39.7392, lon: -104.9903 }], fetchImpl)
   assert.equal(calls.length, 2, 'the failed coordinate is retried on the next call')
 })

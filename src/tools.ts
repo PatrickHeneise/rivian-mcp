@@ -17,21 +17,25 @@ export function text(str: string) {
   return { content: [{ type: 'text' as const, text: str }] }
 }
 
+/** A tool response that reports a failure to the client. */
+export function errorText(str: string) {
+  return { ...text(str), isError: true }
+}
+
 export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
-  // Runs a tool and turns any error into its text response
+  // Return query failures as MCP tool errors.
   const query = async (run: (session: rivian.Session) => Promise<string>) => {
     try {
       return text(await run(await ctx.session()))
     } catch (err) {
-      return text((err as Error).message)
+      return errorText((err as Error).message)
     }
   }
 
   server.registerTool(
     'rivian_get_user_info',
     {
-      description:
-        'Look up your Rivian account — your vehicles, software versions, and account details.',
+      description: 'Get your account details, vehicles and software versions.',
       annotations: READ_ONLY,
     },
     () => query(async (s) => format.formatUserInfo(await rivian.getUserInfo(s))),
@@ -41,7 +45,7 @@ export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
     'rivian_get_vehicle_state',
     {
       description:
-        "Check your vehicle's current status — battery, range, doors, windows, tires, location, climate, seat heat/vent, steering wheel heat, software versions, security, trailer status, and more.",
+        'Get vehicle state: battery, range, doors, windows, tires, location, climate, seat heating and ventilation, steering wheel heat, software versions, security and trailer status.',
       inputSchema: z.object({
         properties: z
           .array(z.string())
@@ -62,8 +66,7 @@ export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
   server.registerTool(
     'rivian_get_ota_status',
     {
-      description:
-        "Check for software updates — what version you're running and whether a new one is available.",
+      description: 'Get the installed software version and any available update.',
       annotations: READ_ONLY,
     },
     () =>
@@ -76,7 +79,7 @@ export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
     'rivian_get_charging_session',
     {
       description:
-        'Check on an active charging session — power, battery level, time remaining, and cost.',
+        'Get the active charging session, including available power, battery level, time remaining and cost.',
       annotations: READ_ONLY,
     },
     () =>
@@ -92,8 +95,7 @@ export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
   server.registerTool(
     'rivian_get_charging_history',
     {
-      description:
-        'View past charging sessions, newest first — energy, cost, duration, and location for each charge.',
+      description: 'List charging history newest first, with energy, cost, duration and location.',
       inputSchema: z.object({
         limit: z
           .number()
@@ -113,8 +115,7 @@ export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
   server.registerTool(
     'rivian_get_charging_schedule',
     {
-      description:
-        'See your charging schedule — what times and days your vehicle is set to charge.',
+      description: 'Get the days and times your vehicle is scheduled to charge.',
       annotations: READ_ONLY,
     },
     () =>
@@ -126,7 +127,7 @@ export function registerQueryTools(server: McpServer, ctx: QueryContext): void {
   server.registerTool(
     'rivian_get_drivers_and_keys',
     {
-      description: 'See who has access to your vehicle — drivers, phone keys, and key fobs.',
+      description: 'List drivers, phone keys and key fobs with access to your vehicle.',
       annotations: READ_ONLY,
     },
     () =>

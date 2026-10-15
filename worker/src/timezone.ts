@@ -41,11 +41,6 @@ export function localIso(ms: number, timezone: string | null): string {
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}${offset}`
 }
 
-/** `YYYY-MM-DD` in the given time zone. */
-export function localDate(ms: number, timezone: string | null): string {
-  return localIso(ms, timezone).slice(0, 10)
-}
-
 /** Short zone label for humans, e.g. `MDT`, or the zone name when it has no abbreviation. */
 export function zoneAbbreviation(ms: number, timezone: string | null): string {
   if (!timezone) return 'UTC'

@@ -132,11 +132,21 @@ function unitsToggle(current: Units): HTMLElement {
     } catch {}
     render()
   }
+  const button = (value: Units, label: string) =>
+    h(
+      'button',
+      {
+        class: current === value ? 'active' : '',
+        'aria-pressed': String(current === value),
+        onclick: pick(value),
+      },
+      label,
+    )
   return h(
     'div',
     { class: 'seg', role: 'group', 'aria-label': 'Units' },
-    h('button', { class: current === 'imperial' ? 'active' : '', onclick: pick('imperial') }, 'mi'),
-    h('button', { class: current === 'metric' ? 'active' : '', onclick: pick('metric') }, 'km'),
+    button('imperial', 'mi'),
+    button('metric', 'km'),
   )
 }
 
@@ -150,6 +160,8 @@ function loadUnits(): Units | null {
 }
 
 function status(message: string): void {
+  teardown()
+  stack.length = 0
   root.replaceChildren(h('p', { class: 'status' }, message))
 }
 

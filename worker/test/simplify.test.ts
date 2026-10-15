@@ -1,33 +1,32 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { type LonLat, simplify, simplifyIndices } from '../src/simplify.ts'
+import { type LonLat, simplifyIndices } from '../src/simplify.ts'
 import { boulderToLongmont } from './support/d1.ts'
 
 const track = (): LonLat[] => boulderToLongmont().map((p) => [p.lon, p.lat])
 
-test('simplify returns a copy when the track already fits', () => {
+test('simplifyIndices keeps every index when the track already fits', () => {
   const points: LonLat[] = [
     [0, 0],
     [1, 1],
     [2, 0],
   ]
-  const out = simplify(points, 3)
-  assert.deepEqual(out, points)
-  assert.notEqual(out, points)
+  const out = simplifyIndices(points, 3)
+  assert.deepEqual(out, [0, 1, 2])
 })
 
-test('simplify keeps both ends and at most max points', () => {
+test('simplifyIndices keeps both ends and at most max points', () => {
   const points = track()
-  const out = simplify(points, 100)
+  const out = simplifyIndices(points, 100)
   assert.ok(out.length <= 100, `got ${out.length}`)
   assert.ok(out.length >= 50, `too aggressive: ${out.length}`)
-  assert.deepEqual(out[0], points[0])
-  assert.deepEqual(out.at(-1), points.at(-1))
+  assert.equal(out[0], 0)
+  assert.equal(out.at(-1), points.length - 1)
 })
 
-test('simplify collapses a straight line to its ends', () => {
+test('simplifyIndices collapses a straight line to its ends', () => {
   const points: LonLat[] = Array.from({ length: 50 }, (_, i) => [i * 0.01, i * 0.01])
-  assert.deepEqual(simplify(points, 10), [points[0], points.at(-1)])
+  assert.deepEqual(simplifyIndices(points, 10), [0, points.length - 1])
 })
 
 test('simplifyIndices is ascending and keeps the bend', () => {
@@ -47,11 +46,11 @@ test('simplifyIndices is ascending and keeps the bend', () => {
   )
 })
 
-test('simplify honors max_points on a diagonal loop', () => {
+test('simplifyIndices honors max_points on a diagonal loop', () => {
   const loop: [number, number][] = [
     [0, 0],
     [1, 1],
     [0, 0],
   ]
-  assert.equal(simplify(loop, 2).length, 2)
+  assert.equal(simplifyIndices(loop, 2).length, 2)
 })

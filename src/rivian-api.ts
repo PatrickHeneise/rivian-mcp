@@ -1,12 +1,13 @@
 /**
- * Rivian API — READ ONLY
+ * Rivian API - READ ONLY
  *
  * Based on bretterer/rivian-python-client and rivian-api.kaedenb.org docs.
- * No write/post/patch mutations — only auth and queries.
+ * No write/post/patch mutations - only auth and queries.
  */
 
 const GRAPHQL_GATEWAY = 'https://rivian.com/api/gql/gateway/graphql'
 const GRAPHQL_CHARGING = 'https://rivian.com/api/gql/chrg/user/graphql'
+const REQUEST_TIMEOUT_MS = 30_000
 export const APOLLO_CLIENT_NAME = 'com.rivian.ios.consumer-apollo-ios'
 
 const BASE_HEADERS = {
@@ -266,11 +267,17 @@ export async function login(
   )
 
   if (data.login.otpToken) {
+    session.accessToken = ''
+    session.refreshToken = ''
+    session.userSessionToken = ''
     session.otpToken = data.login.otpToken
     return { mfa: true }
   }
 
-  session.accessToken = data.login.accessToken ?? ''
+  if (!data.login.accessToken) throw new Error('Login failed. Rivian returned no access token.')
+
+  session.otpToken = ''
+  session.accessToken = data.login.accessToken
   session.refreshToken = data.login.refreshToken ?? ''
   session.userSessionToken = data.login.userSessionToken ?? ''
   return { mfa: false }
@@ -299,7 +306,9 @@ export async function validateOtp(session: Session, email: string, otpCode: stri
   )
 
   if (!data?.loginWithOTP?.accessToken) {
-    throw new Error('OTP validation failed — incorrect code or expired token. Please try again.')
+    throw new Error(
+      'OTP validation failed. The code is incorrect or the token has expired. Try again.',
+    )
   }
 
   session.accessToken = data.loginWithOTP.accessToken
@@ -548,7 +557,12 @@ export async function getChargingHistory(
     }
     items.push(...result.items)
     const cursor: string | null | undefined = result.pageInfo?.nextCursor
-    if (!result.pageInfo?.hasNextPage || !cursor) break
+    if (!result.pageInfo?.hasNextPage) break
+    if (!cursor) {
+      throw new Error(
+        `Charging history is missing a continuation cursor after ${items.length} sessions.`,
+      )
+    }
     // A repeated cursor would loop forever
     if (seenCursors.has(cursor)) {
       throw new Error(`Charging history returned a repeated cursor after ${items.length} sessions.`)
@@ -694,6 +708,7 @@ async function gql<T>(
   try {
     res = await fetch(url, {
       method: 'POST',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         ...BASE_HEADERS,
         'dc-cid': `m-ios-${crypto.randomUUID()}`,

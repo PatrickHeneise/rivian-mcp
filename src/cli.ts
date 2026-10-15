@@ -2,6 +2,7 @@
 
 import { createInterface } from 'node:readline'
 import { formatOTAStatus, formatVehicleState } from './format.ts'
+import { promptSecret } from './prompt.ts'
 import * as rivian from './rivian-api.ts'
 import { loadSession, saveSession } from './session.ts'
 import { c, logo } from './ui.ts'
@@ -18,45 +19,11 @@ function prompt(question: string): Promise<string> {
   })
 }
 
-function promptSecret(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    process.stderr.write(question)
-    const stdin = process.stdin
-    const wasRaw = stdin.isRaw ?? false
-    stdin.setRawMode(true)
-    stdin.resume()
-    stdin.setEncoding('utf8')
-
-    let input = ''
-    const onData = (ch: string) => {
-      if (ch === '\n' || ch === '\r' || ch === '\u0004') {
-        stdin.removeListener('data', onData)
-        stdin.setRawMode(wasRaw)
-        stdin.pause()
-        process.stderr.write('\n')
-        resolve(input)
-      } else if (ch === '\u007f' || ch === '\b') {
-        if (input.length > 0) {
-          input = input.slice(0, -1)
-          process.stderr.write('\b \b')
-        }
-      } else if (ch === '\u0003') {
-        stdin.setRawMode(wasRaw)
-        process.exit(130)
-      } else {
-        input += ch
-        process.stderr.write('*')
-      }
-    }
-    stdin.on('data', onData)
-  })
-}
-
 async function ensureAuth() {
   const result = loadSession(session)
   if (result === true) return
 
-  // OTP was already initiated (e.g. via MCP login) — just complete it
+  // OTP was already initiated (e.g. via MCP login) - just complete it
   if (result === 'needs_otp') {
     const email = process.env.RIVIAN_EMAIL || (await prompt(`${c.dim('Rivian email:')} `))
     const code = await promptSecret(`${c.dim('Verification code:')} `)
@@ -131,6 +98,7 @@ try {
   }
 } catch (e) {
   const err = e as rivian.RivianError
+  if (err.code === 'ABORT_ERR') process.exit(130)
   console.error(`${c.red('Error:')} ${err.message}`)
   if (err.code) console.error(c.dim(`  Code: ${err.code}`))
   if (err.reason) console.error(c.dim(`  Reason: ${err.reason}`))

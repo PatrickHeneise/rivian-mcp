@@ -5,7 +5,7 @@ All return `{ timeStamp, value }` unless noted in the Custom Templates section.
 
 Units are determined by the user's in-vehicle settings (km/miles, °C/°F). The API returns raw values without unit metadata. User unit preferences (`distanceUnit`, `temperatureUnit`, `pressureUnit`) are available on `currentUser.settings` (each `{ value }`) but are commonly `null`.
 
-**`vehicleMileage` is in METERS, not km.** Live example: `47393698` = 47,394 km ≈ 29,449 mi. Divide by 1000 for km. (An earlier revision of this doc wrongly labeled it km — corrected July 2026.) `distanceToEmpty` follows the user's in-vehicle distance setting.
+**`vehicleMileage` is in METERS, not km.** Live example: `47393698` = 47,394 km ≈ 29,449 mi. Divide by 1000 for km. (An earlier revision of this doc wrongly labeled it km - corrected July 2026.) `distanceToEmpty` follows the user's in-vehicle distance setting.
 
 ## Custom Templates
 
@@ -37,7 +37,7 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `batteryCellType`            | String     | `"53g"` (chemistry/cell pack identifier)             |
 | `batteryNeedsLfpCalibration` | Int        | `0` (`1` when an LFP 100% calibration charge is due) |
 | `distanceToEmpty`            | Int        | `300` (user's distance unit)                         |
-| `vehicleMileage`             | Int        | `47393698` (**meters** — divide by 1000 for km)      |
+| `vehicleMileage`             | Int        | `47393698` (**meters** - divide by 1000 for km)      |
 | `powerState`                 | String     | `"sleep"`, `"ready"`, `"go"`                         |
 | `timeToEndOfCharge`          | Int        | `45` (minutes, `0` when not charging)                |
 | `remoteChargingAvailable`    | Int        | `0` or `1`                                           |
@@ -65,7 +65,7 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `otaCurrentVersionYear`      | Int        | `2026`                                                                                                                                                        |
 | `otaCurrentVersionWeek`      | Int        | `3`                                                                                                                                                           |
 | `otaCurrentVersionNumber`    | Int        | `0`                                                                                                                                                           |
-| `otaAvailableVersion`        | String     | `"2026.07.0"` — `"0.0.0"` means no update                                                                                                                     |
+| `otaAvailableVersion`        | String     | `"2026.07.0"` - `"0.0.0"` means no update                                                                                                                     |
 | `otaAvailableVersionGitHash` | String     | empty string when no update                                                                                                                                   |
 | `otaAvailableVersionYear`    | Int        | `0` when no update available                                                                                                                                  |
 | `otaAvailableVersionWeek`    | Int        | `0` when no update available                                                                                                                                  |
@@ -101,7 +101,7 @@ Three properties require non-standard fragment templates (defined in `TEMPLATE_M
 | `tirePressureStatusValidRearLeft`   | String     |                                       |
 | `tirePressureStatusValidRearRight`  | String     |                                       |
 
-> Note the name: `tirePressureStatusValid*` (with `Status`), **not** `tirePressureValid*` — the latter is rejected.
+> Note the name: `tirePressureStatusValid*` (with `Status`), **not** `tirePressureValid*` - the latter is rejected.
 
 ## Doors
 
@@ -338,8 +338,8 @@ query getCompletedSessionSummariesV2($vehicleId: String!, $pageSize: Int, $searc
 
 | Field       | Notes                                     |
 | ----------- | ----------------------------------------- |
-| `startTime` | Minutes from midnight — `1320` = 10:00 PM |
-| `duration`  | Minutes — `360` = 6 hours                 |
+| `startTime` | Minutes from midnight - `1320` = 10:00 PM |
+| `duration`  | Minutes - `360` = 6 hours                 |
 | `amperage`  | Int                                       |
 | `enabled`   | Boolean                                   |
 | `weekDays`  | Array of day strings                      |
@@ -412,7 +412,7 @@ Rejected on `User`: `userId`, `locale`, `preferences`, `orders`.
 
 ## Subscriptions (websocket)
 
-Verified live on Oct 9, 2026 (2025 R1S, 2026.31.0, parked) with read-only subscriptions. The topic list and the GNSS field map came from a separate "drive data audit" session, which read bretterer/rivian-python-client and blike/rivianmate (incl. PR #15). This repo does not use subscriptions yet.
+Verified live on Oct 9, 2026 (2025 R1S, 2026.31.0, parked) with read-only subscriptions. The topic list and the GNSS field map came from a separate "drive data audit" session, which read bretterer/rivian-python-client and blike/rivianmate (incl. PR #15). The Worker recorder now uses `VehicleState` and `ParallaxMessages` subscriptions (`worker/src/recorder.ts`); this section preserves the dated discovery evidence.
 
 - **URL:** `wss://api.rivian.com/gql-consumer-subscriptions/graphql`, subprotocol `graphql-transport-ws`. No custom headers needed.
 - **connection_init:** `{"type":"connection_init","payload":{"client-name":"com.rivian.ios.consumer-apollo-ios","client-version":"1.13.0-1494","dc-cid":"m-ios-<uuid4>","u-sess":"<userSessionToken>"}}` returns `connection_ack`. Then send `{"id":"<uuid>","type":"subscribe","payload":{operationName,query,variables}}`. Data arrives as `next` messages. Each subscription sends its current value at once, then pushes changes.
@@ -486,13 +486,13 @@ Both return data (bodies from rivianmate `server/src/rivian/graphql.ts`).
 
 ---
 
-## What Does NOT Exist (confirmed rejected by API)
+## Fields and queries rejected in testing
 
-These were probed and returned `GRAPHQL_VALIDATION_FAILED` — do not use them:
+These probes returned `GRAPHQL_VALIDATION_FAILED`. Do not add them without verifying a working query:
 
-**Vehicle state:** `vehicleSpeed`, `suspensionLevel`, `rideHeight`, `kineticRoll`, `pitchAngle`, `batteryAuxLevel`, `chargerVoltage`, `chargerCurrent`, `regenBrakingMode`, `odometer`, `tripMileage`, `towMode`, `campMode`, `differentialLockFront/Rear`, `seatVentFrontLeft/Right` (wrong name — use `seatFrontLeftVent`), `tirePressureFrontLeft` (wrong — use `tirePressureStatusFrontLeft`), `tirePressureValidFrontLeft/Right/RearLeft/Right`, `doorFrontLeft/Right/RearLeft/RightNextAction`
+**Vehicle state:** `vehicleSpeed`, `suspensionLevel`, `rideHeight`, `kineticRoll`, `pitchAngle`, `batteryAuxLevel`, `chargerVoltage`, `chargerCurrent`, `regenBrakingMode`, `odometer`, `tripMileage`, `towMode`, `campMode`, `differentialLockFront/Rear`, `seatVentFrontLeft/Right` (wrong name - use `seatFrontLeftVent`), `tirePressureFrontLeft` (wrong - use `tirePressureStatusFrontLeft`), `tirePressureValidFrontLeft/Right/RearLeft/Right`, `doorFrontLeft/Right/RearLeft/RightNextAction`
 
-**Gateway queries:** `planTrip` (via our query format — may need different operation name), `getNearbyChargingSites`, `getVehicleImages` (rejected in our tests), `getVehicleWarranty`, `getUserNotifications`, `getVehicleOrderStatus`
+**Gateway queries:** `planTrip` (via our query format - may need different operation name), `getNearbyChargingSites`, `getVehicleImages` (rejected in our tests), `getVehicleWarranty`, `getUserNotifications`, `getVehicleOrderStatus`
 
 **Charging queries:** `getChargingSiteDetails`, `getActiveChargingSession`, `getPricingInfo`, `getChargerSummary`, `getNearbyChargingStations`, `getRoamingChargingNetworks`
 
@@ -500,4 +500,4 @@ These were probed and returned `GRAPHQL_VALIDATION_FAILED` — do not use them:
 
 **Probed Oct 2026, rejected (vehicle state, HTTP):** `chargingDisabledACFaultState`, `chargingTripTargetMinsRemaining`, `chargingTripTargetSoc`, `coldRangeNotification`, `activeDriverName`, `tirePressureFrontLeft` (these are subscription-only upstream), `tirePressureFrontLeftBar/Psi/Kpa`, `chargeTargetSoc`, `chargingMode`, `chargePortDoorState`, `closureChargePortDoorClosed/Locked`, `cabinClimateExteriorTemperature`, `cabinClimatePassengerTemperature`, `exteriorTemperature`, `ambientTemperature`, `outsideTemperature`, `batteryTemperature`, `batteryHvTemperature`, `batteryStateOfHealth`, `batteryHealth`, `batteryDegradation`, `rangeEstimate`, `gearGuardLiveStatus`, `gearGuardAutoRecord`, `autonomyStatus`, `driverAssistStatus`, `highwayAssistStatus`, `softwareUpdateStatus`, `sentryMode`, `campModeStatus`, `kneelStatus`, `suspensionHeight`, `rideHeightStatus`, `speed`, `odometerKm`, `chargeLimit`, `batteryLimitMax`, `departureTime`, `departureScheduleStatus`, `preconditioningTargetTemperature`, `cabinClimateTargetTemperature`, `seatSecondRowLeftHeat/RightHeat`, `steeringWheelHeatLevel`, `windowsCalibrated`, `sunroofStatus`, `sunshadeStatus`, `closureSunroofClosed`, `closureGearTunnelLeftClosed/RightClosed`, `lowBeamStatus`, `headlightStatus`, `hornStatus`, `keyFobPresent`, `phoneKeyPresent`, `driverDoorAjar`, `tpmsStatus`, `chargingSessionId`, `plugStatus`, `chargerPlugType`, `evseType`, `acChargeCurrent`, `dcChargePower`, `chargePower`, `chargerPower`, `chargingPower`, `chargingRate`, `chargingSpeed`
 
-**Probed Oct 2026, rejected (charging `Query`):** about 400 `get/list/fetch/search` + noun combinations (sessions, sites, stations, pricing, tariffs, invoices, receipts, roaming, plug-and-charge, credits, subscriptions). Only the queries listed in this document exist.
+**Probed Oct 2026, rejected (charging `Query`):** about 400 `get/list/fetch/search` + noun combinations (sessions, sites, stations, pricing, tariffs, invoices, receipts, roaming, plug-and-charge, credits, subscriptions). Those probes found only the queries listed in this document.

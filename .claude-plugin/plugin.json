@@ -1,6 +1,6 @@
 {
   "name": "rivian-mcp",
-  "description": "Skills for working with the Rivian MCP server — vehicle state, charging, OTA updates, and the unofficial Rivian GraphQL API.",
+  "description": "Rivian MCP development guidance for vehicle state, charging, software updates and the unofficial GraphQL API.",
   "version": "0.1.0",
   "author": {
     "name": "Zentered",

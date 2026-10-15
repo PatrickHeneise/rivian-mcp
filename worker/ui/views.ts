@@ -188,16 +188,19 @@ export function statsScreen(view: StatsView, ctx: Ctx): HTMLElement {
           (y, digits) => `${fmt.number(y, digits)} ${fmt.distance(0)[1]}`,
         ),
       ),
-      view.capacity.length > 1 &&
-        section(
-          'Pack capacity',
-          lineChart({
-            points: view.capacity,
-            formatX: (x) => fmt.date(x, { month: 'short', day: 'numeric' }),
-            formatY: (y, digits) => fmt.number(y, digits),
-            tooltip: (x, y) =>
-              `${fmt.date(x, { month: 'short', day: 'numeric' })} · ${fmt.number(y, 2)} kWh`,
-          }),
+      ...view.capacity
+        .filter((pack) => pack.points.length > 1)
+        .map((pack) =>
+          section(
+            view.capacity.length === 1 ? 'Pack capacity' : `Pack capacity · ${pack.vehicleId}`,
+            lineChart({
+              points: pack.points,
+              formatX: (x) => fmt.date(x, { month: 'short', day: 'numeric' }),
+              formatY: (y, digits) => fmt.number(y, digits),
+              tooltip: (x, y) =>
+                `${fmt.date(x, { month: 'short', day: 'numeric' })} · ${fmt.number(y, 2)} kWh`,
+            }),
+          ),
         ),
     ),
     section('Drives', driveTable(view, ctx)),
@@ -258,7 +261,11 @@ export function chargingScreen(
                 {},
                 h(
                   'button',
-                  { class: i === selected ? 'row active' : 'row', onclick: () => select(i) },
+                  {
+                    class: i === selected ? 'row active' : 'row',
+                    'aria-pressed': String(i === selected),
+                    onclick: () => select(i),
+                  },
                   h(
                     'span',
                     {},
@@ -430,7 +437,11 @@ function periods(current: number, onPick: (days: number) => void, options = PERI
     ...options.map((n) =>
       h(
         'button',
-        { class: n === current ? 'active' : '', onclick: () => onPick(n) },
+        {
+          class: n === current ? 'active' : '',
+          'aria-pressed': String(n === current),
+          onclick: () => onPick(n),
+        },
         n === 365 ? '1 y' : `${n} d`,
       ),
     ),

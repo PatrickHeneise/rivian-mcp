@@ -5,7 +5,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { z } from 'zod'
 import * as rivian from './rivian-api.ts'
 import { loadSession, saveSession } from './session.ts'
-import { registerQueryTools, text } from './tools.ts'
+import { errorText, registerQueryTools, text } from './tools.ts'
 
 const session = rivian.emptySession()
 
@@ -43,14 +43,14 @@ function createServer() {
     'rivian_login',
     {
       description:
-        'Log in to your Rivian account. Rivian will send a verification code to your phone or email — use rivian_submit_otp to complete sign-in.',
+        'Sign in to Rivian. If Rivian sends a verification code to your phone or email, submit it with rivian_submit_otp.',
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     async () => {
       const email = process.env.RIVIAN_EMAIL
       const password = process.env.RIVIAN_PASSWORD
       if (!email || !password) {
-        return text(
+        return errorText(
           'Rivian credentials are not configured. Set RIVIAN_EMAIL and RIVIAN_PASSWORD in your MCP server settings.',
         )
       }
@@ -59,6 +59,7 @@ function createServer() {
         await rivian.createCsrfToken(session)
         const { mfa } = await rivian.login(session, email, password)
         saveSession(session)
+        cachedVehicleId = null
 
         if (mfa) {
           return text(
@@ -66,9 +67,9 @@ function createServer() {
           )
         }
 
-        return text('Signed in to Rivian successfully.')
+        return text('Signed in to Rivian.')
       } catch (err) {
-        return text(`Couldn't sign in: ${(err as Error).message}`)
+        return errorText(`Couldn't sign in: ${(err as Error).message}`)
       }
     },
   )
@@ -84,19 +85,20 @@ function createServer() {
     async ({ otp_code }) => {
       const email = process.env.RIVIAN_EMAIL
       if (!email) {
-        return text('RIVIAN_EMAIL is not configured.')
+        return errorText('RIVIAN_EMAIL is not configured.')
       }
 
       if (!rivian.needsOtp(session)) {
-        return text('No pending verification. Start with rivian_login first.')
+        return errorText('No verification is pending. Call rivian_login first.')
       }
 
       try {
         await rivian.validateOtp(session, email, otp_code)
         saveSession(session)
-        return text('Signed in to Rivian successfully.')
+        cachedVehicleId = null
+        return text('Signed in to Rivian.')
       } catch (err) {
-        return text(
+        return errorText(
           `Verification failed: ${(err as Error).message}. You may need to start over with rivian_login.`,
         )
       }
