@@ -521,7 +521,7 @@ Four read-only probe rounds found no assistant, chat, conversation, or intellige
 - Inconclusive: `t2d` returned a 503 nginx page, likely a transient outage. Retry later.
 
 **Fields:**
-- `currentUser.settings` exists, type `UserSettingsMap`. Its subfields were not probed. A `Map` type may need key arguments, not named fields. This is the only place an assistant settings toggle could plausibly live on the consumer API.
+- `currentUser.settings` exists and exposes `distanceUnit`, `temperatureUnit` and `pressureUnit` (see the top of this file). The probe reported its type as `UserSettingsMap`; no other source in this repo confirms that name. Assistant subfields were not probed. It is the most plausible place for an assistant settings toggle on the consumer API.
 - Confirmed absent on the `orders` root (its errors name the field): `assistant`, `intelligence`, `aiAssistant`.
 - Inconclusive on the gateway `currentUser` (generic error, same as control): `preferences`, `assistant`, `assistantSettings`, `intelligence`, `intelligenceSettings`, `rivianIntelligence`, `aiSettings`, `aiPreferences`, `memory`, `voiceAssistant`, `features`, `enrolledFeatures`, `featureFlags`.
 - Inconclusive on the `content` root (error "Invalid request.", no field detail): `assistant`, `intelligence`, `aiAssistant`, `faq`, `article`, `support`.
