@@ -74,34 +74,57 @@ function lockPanel(view: StatusView): HTMLElement {
     ...CORNERS.filter(([c]) => view.doors[c].locked === false).map(([, n]) => `${n} door`),
     ...view.closures.filter((c) => c.locked === false).map((c) => c.label.toLowerCase()),
   ]
-  const headline = view.locked === null ? 'Lock state unknown' : view.locked ? 'Locked' : 'Unlocked'
+  const lockCovered =
+    CORNERS.every(([c]) => view.doors[c].locked !== null) &&
+    view.closures.every((c) => c.locked !== null)
+  const headline =
+    view.locked === null
+      ? 'Lock state unknown'
+      : view.locked
+        ? lockCovered
+          ? 'Locked'
+          : 'Locked, incomplete'
+        : 'Unlocked'
   const detail =
     view.locked === null
       ? 'The vehicle sent no lock signal.'
       : view.locked
-        ? 'All doors and closures'
+        ? lockCovered
+          ? 'All doors and closures'
+          : 'Only the doors and closures that reported'
         : capitalize(unlocked.join(', '))
 
   const openDoors = CORNERS.filter(([c]) => view.doors[c].open).map(([, n]) => n)
   const openWindows = CORNERS.filter(([c]) => view.windows[c]).map(([, n]) => n)
+  const allDoors = CORNERS.every(([c]) => view.doors[c].open !== null)
   const anyDoor = CORNERS.some(([c]) => view.doors[c].open !== null)
+  const allWindows = CORNERS.every(([c]) => view.windows[c] !== null)
   const anyWindow = CORNERS.some(([c]) => view.windows[c] !== null)
   const lowTires = CORNERS.filter(([c]) => view.tires[c] === 'low' || view.tires[c] === 'critical')
+  const allTires = CORNERS.every(([c]) => view.tires[c] !== null)
   const anyTire = CORNERS.some(([c]) => view.tires[c] !== null)
 
   const rows: [string, string, string][] = []
   if (anyDoor) {
     rows.push([
       'Doors',
-      openDoors.length ? `Open: ${openDoors.join(', ')}` : 'Closed',
-      openDoors.length ? 'open' : 'closed',
+      openDoors.length
+        ? `Open: ${openDoors.join(', ')}`
+        : allDoors
+          ? 'Closed'
+          : 'Closed where reported',
+      openDoors.length ? 'open' : allDoors ? 'closed' : 'neutral',
     ])
   }
   if (anyWindow) {
     rows.push([
       'Windows',
-      openWindows.length ? `Open: ${openWindows.join(', ')}` : 'Closed',
-      openWindows.length ? 'unlocked' : 'closed',
+      openWindows.length
+        ? `Open: ${openWindows.join(', ')}`
+        : allWindows
+          ? 'Closed'
+          : 'Closed where reported',
+      openWindows.length ? 'unlocked' : allWindows ? 'closed' : 'neutral',
     ])
   }
   for (const c of view.closures) {
@@ -123,12 +146,16 @@ function lockPanel(view: StatusView): HTMLElement {
       'Tires',
       lowTires.length
         ? lowTires.map(([c, n]) => `${capitalize(n)} ${view.tires[c]}`).join(', ')
-        : 'Pressure OK',
+        : allTires
+          ? 'Pressure OK'
+          : 'OK where reported',
       lowTires.some(([c]) => view.tires[c] === 'critical')
         ? 'open'
         : lowTires.length
           ? 'unlocked'
-          : 'closed',
+          : allTires
+            ? 'closed'
+            : 'neutral',
     ])
   }
   if (view.gearGuardLocked !== null) {
