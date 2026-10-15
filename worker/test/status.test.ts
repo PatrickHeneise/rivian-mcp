@@ -258,6 +258,15 @@ test('live parked and charging signals win over an open recorder drive', () => {
   assert.equal(noGear.activity, 'driving')
 })
 
+test('a boolean brakeFluidLow raises the alert', () => {
+  assert.ok(
+    buildStatus(input({ brakeFluidLow: true })).alerts.some((a) => a.text === 'Brake fluid low'),
+  )
+  assert.ok(
+    !buildStatus(input({ brakeFluidLow: false })).alerts.some((a) => a.text === 'Brake fluid low'),
+  )
+})
+
 test('describeStatus gives the model the same facts', () => {
   const text = describeStatus(
     buildStatus(input({}, { parallaxBattery: { socPct: 48.6, rangeKm: 301 } })),

@@ -181,6 +181,7 @@ export function buildStatus(input: StatusInput): StatusView {
   }
   const str = (key: string) => {
     const x = v(key)
+    if (typeof x === 'boolean') return String(x)
     return typeof x === 'string' && x !== '' && x !== 'undefined' ? x : null
   }
   /** true or false for the two known values, null for anything else such as signal_not_available. */
