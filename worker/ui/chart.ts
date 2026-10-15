@@ -65,7 +65,13 @@ function drawLine(width: number, opts: LineChartOptions): HTMLElement {
   const base = py(Math.max(y0, Math.min(0, y1)))
   const svg = s(
     'svg',
-    { width, height: HEIGHT, viewBox: `0 0 ${width} ${HEIGHT}`, role: 'img' },
+    {
+      width,
+      height: HEIGHT,
+      viewBox: `0 0 ${width} ${HEIGHT}`,
+      role: 'img',
+      'aria-label': `Line chart from ${opts.formatX(x0)} to ${opts.formatX(x1)}`,
+    },
     ...gridLines(ticks, width, py, (t) => opts.formatY(t, digits)),
     s('text', { class: 'axis', x: PAD.left, y: HEIGHT - 4 }, opts.formatX(x0)),
     s(
@@ -131,7 +137,13 @@ function drawBars(
   const tip = h('div', { class: 'tip', hidden: true })
   const svg = s(
     'svg',
-    { width, height: HEIGHT, viewBox: `0 0 ${width} ${HEIGHT}`, role: 'img' },
+    {
+      width,
+      height: HEIGHT,
+      viewBox: `0 0 ${width} ${HEIGHT}`,
+      role: 'img',
+      'aria-label': `Bar chart with ${bars.length} values`,
+    },
     ...gridLines(ticks, width, py, (t) => formatY(t, digits)),
     bars.length > 0 && s('text', { class: 'axis', x: PAD.left, y: HEIGHT - 4 }, bars[0].label),
     bars.length > 1 &&

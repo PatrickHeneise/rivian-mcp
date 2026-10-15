@@ -258,7 +258,11 @@ export function chargingScreen(
                 {},
                 h(
                   'button',
-                  { class: i === selected ? 'row active' : 'row', onclick: () => select(i) },
+                  {
+                    class: i === selected ? 'row active' : 'row',
+                    'aria-pressed': String(i === selected),
+                    onclick: () => select(i),
+                  },
                   h(
                     'span',
                     {},
@@ -430,7 +434,11 @@ function periods(current: number, onPick: (days: number) => void, options = PERI
     ...options.map((n) =>
       h(
         'button',
-        { class: n === current ? 'active' : '', onclick: () => onPick(n) },
+        {
+          class: n === current ? 'active' : '',
+          'aria-pressed': String(n === current),
+          onclick: () => onPick(n),
+        },
         n === 365 ? '1 y' : `${n} d`,
       ),
     ),

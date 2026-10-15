@@ -135,8 +135,24 @@ function unitsToggle(current: Units): HTMLElement {
   return h(
     'div',
     { class: 'seg', role: 'group', 'aria-label': 'Units' },
-    h('button', { class: current === 'imperial' ? 'active' : '', onclick: pick('imperial') }, 'mi'),
-    h('button', { class: current === 'metric' ? 'active' : '', onclick: pick('metric') }, 'km'),
+    h(
+      'button',
+      {
+        class: current === 'imperial' ? 'active' : '',
+        'aria-pressed': String(current === 'imperial'),
+        onclick: pick('imperial'),
+      },
+      'mi',
+    ),
+    h(
+      'button',
+      {
+        class: current === 'metric' ? 'active' : '',
+        'aria-pressed': String(current === 'metric'),
+        onclick: pick('metric'),
+      },
+      'km',
+    ),
   )
 }
 
@@ -150,6 +166,8 @@ function loadUnits(): Units | null {
 }
 
 function status(message: string): void {
+  teardown()
+  stack.length = 0
   root.replaceChildren(h('p', { class: 'status' }, message))
 }
 
