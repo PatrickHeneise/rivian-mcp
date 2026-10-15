@@ -501,3 +501,31 @@ These probes returned `GRAPHQL_VALIDATION_FAILED`. Do not add them without verif
 **Probed Oct 2026, rejected (vehicle state, HTTP):** `chargingDisabledACFaultState`, `chargingTripTargetMinsRemaining`, `chargingTripTargetSoc`, `coldRangeNotification`, `activeDriverName`, `tirePressureFrontLeft` (these are subscription-only upstream), `tirePressureFrontLeftBar/Psi/Kpa`, `chargeTargetSoc`, `chargingMode`, `chargePortDoorState`, `closureChargePortDoorClosed/Locked`, `cabinClimateExteriorTemperature`, `cabinClimatePassengerTemperature`, `exteriorTemperature`, `ambientTemperature`, `outsideTemperature`, `batteryTemperature`, `batteryHvTemperature`, `batteryStateOfHealth`, `batteryHealth`, `batteryDegradation`, `rangeEstimate`, `gearGuardLiveStatus`, `gearGuardAutoRecord`, `autonomyStatus`, `driverAssistStatus`, `highwayAssistStatus`, `softwareUpdateStatus`, `sentryMode`, `campModeStatus`, `kneelStatus`, `suspensionHeight`, `rideHeightStatus`, `speed`, `odometerKm`, `chargeLimit`, `batteryLimitMax`, `departureTime`, `departureScheduleStatus`, `preconditioningTargetTemperature`, `cabinClimateTargetTemperature`, `seatSecondRowLeftHeat/RightHeat`, `steeringWheelHeatLevel`, `windowsCalibrated`, `sunroofStatus`, `sunshadeStatus`, `closureSunroofClosed`, `closureGearTunnelLeftClosed/RightClosed`, `lowBeamStatus`, `headlightStatus`, `hornStatus`, `keyFobPresent`, `phoneKeyPresent`, `driverDoorAjar`, `tpmsStatus`, `chargingSessionId`, `plugStatus`, `chargerPlugType`, `evseType`, `acChargeCurrent`, `dcChargePower`, `chargePower`, `chargerPower`, `chargingPower`, `chargingRate`, `chargingSpeed`
 
 **Probed Oct 2026, rejected (charging `Query`):** about 400 `get/list/fetch/search` + noun combinations (sessions, sites, stations, pricing, tariffs, invoices, receipts, roaming, plug-and-charge, credits, subscriptions). Those probes found only the queries listed in this document.
+
+---
+
+## Rivian Assistant (probed Oct 2026, not on the consumer API)
+
+Rivian announced Rivian Assistant on 2026-05-12 as an in-car voice assistant ("Hey Rivian" or the left steering-wheel button), for Connect+ on Gen 1, Gen 2 and R2. It runs on Rivian's own "Unified Intelligence" stack. Source: https://rivian.com/stories/software-update-hey-rivian-assistant-connect-ai-2026 (not independently verified).
+
+Four read-only probe rounds found no assistant, chat, conversation, or intelligence surface on the consumer GraphQL API. Do not re-run blind name-guessing; capture the app or car traffic instead.
+
+**Probe conditions:**
+- Introspection is disabled on every reachable endpoint (`__schema` / `__type` return `GRAPHQL_VALIDATION_FAILED`).
+- The gateway gives no "did you mean" suggestions. A misspelled field returns a generic `GRAPHQL_VALIDATION_FAILED`, same as a known-good field misspelled. Name-hint discovery does not work here.
+- The gateway hides field-level detail: `{ currentUser { <missing> } }` returns the same generic error for a real-but-needs-subselection field and a nonexistent one. Only object fields can be told apart, by whether a subselection changes the error.
+
+**Endpoint paths on `rivian.com/api/gql/` (POST `{ __typename }`):**
+- Exist (200, `Query`): `gateway`, `chrg/user`, `orders`, `content`.
+- Does not exist (404 marketing HTML, same as a bogus control): `trips`, and every assistant-style name tried (`assistant`, `ai`, `chat`, `rai`, `intelligence`, `conversation`, `conversations`, `ria`, `assistant/user`, `ai/user`, `support`, `service`, `notifications`).
+- Inconclusive: `t2d` returned a 503 nginx page, likely a transient outage. Retry later.
+
+**Fields:**
+- `currentUser.settings` exists, type `UserSettingsMap`. Its subfields were not probed. A `Map` type may need key arguments, not named fields. This is the only place an assistant settings toggle could plausibly live on the consumer API.
+- Confirmed absent on the `orders` root (its errors name the field): `assistant`, `intelligence`, `aiAssistant`.
+- Inconclusive on the gateway `currentUser` (generic error, same as control): `preferences`, `assistant`, `assistantSettings`, `intelligence`, `intelligenceSettings`, `rivianIntelligence`, `aiSettings`, `aiPreferences`, `memory`, `voiceAssistant`, `features`, `enrolledFeatures`, `featureFlags`.
+- Inconclusive on the `content` root (error "Invalid request.", no field detail): `assistant`, `intelligence`, `aiAssistant`, `faq`, `article`, `support`.
+
+**Subscriptions:** the websocket `wss://api.rivian.com/gql-consumer-subscriptions/graphql` accepts the `graphql-transport-ws` upgrade, but a `connection_init` with the session tokens in the payload was closed with `4400 Bad request`. The payload format for it is unconfirmed. No subscribe was sent.
+
+**Open question not answerable from the API:** whether the assistant transcribes speech in the car and sends text, or streams raw audio to a backend. Resolve it by capturing the Rivian app and car traffic (e.g. mitmproxy) while using an assistant feature.
