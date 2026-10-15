@@ -508,7 +508,7 @@ These probes returned `GRAPHQL_VALIDATION_FAILED`. Do not add them without verif
 
 Rivian announced Rivian Assistant on 2026-05-12 as an in-car voice assistant ("Hey Rivian" or the left steering-wheel button), for Connect+ on Gen 1, Gen 2 and R2. It runs on Rivian's own "Unified Intelligence" stack. Source: https://rivian.com/stories/software-update-hey-rivian-assistant-connect-ai-2026 (not independently verified).
 
-Four read-only probe rounds found no assistant, chat, conversation, or intelligence surface on the consumer GraphQL API. Do not re-run blind name-guessing; capture the app or car traffic instead.
+Four read-only probe rounds found no assistant, chat, conversation, or intelligence surface on the consumer GraphQL HTTP API. Subscriptions were not probed for assistant topics. Do not re-run blind name-guessing; capture the app or car traffic instead.
 
 **Probe conditions:**
 - Introspection is disabled on every reachable endpoint (`__schema` / `__type` return `GRAPHQL_VALIDATION_FAILED`).
@@ -526,6 +526,6 @@ Four read-only probe rounds found no assistant, chat, conversation, or intellige
 - Inconclusive on the gateway `currentUser` (generic error, same as control): `preferences`, `assistant`, `assistantSettings`, `intelligence`, `intelligenceSettings`, `rivianIntelligence`, `aiSettings`, `aiPreferences`, `memory`, `voiceAssistant`, `features`, `enrolledFeatures`, `featureFlags`.
 - Inconclusive on the `content` root (error "Invalid request.", no field detail): `assistant`, `intelligence`, `aiAssistant`, `faq`, `article`, `support`.
 
-**Subscriptions:** the websocket `wss://api.rivian.com/gql-consumer-subscriptions/graphql` accepts the `graphql-transport-ws` upgrade, but a `connection_init` with the session tokens in the payload was closed with `4400 Bad request`. The payload format for it is unconfirmed. No subscribe was sent.
+**Subscriptions:** not probed for assistant topics. One probe opened the same websocket (`wss://api.rivian.com/gql-consumer-subscriptions/graphql`) and `connection_init` was closed with `4400 Bad request`. That payload is not recorded here. The working `connection_init` payload (`client-name`, `client-version`, `dc-cid`, `u-sess`) is in "Subscriptions (websocket)" above and `worker/src/recorder.ts`. No subscribe was sent.
 
 **Open question not answerable from the API:** whether the assistant transcribes speech in the car and sends text, or streams raw audio to a backend. Resolve it by capturing the Rivian app and car traffic (e.g. mitmproxy) while using an assistant feature.
