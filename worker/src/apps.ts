@@ -9,7 +9,7 @@ import {
 import type { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import * as rivian from '../../src/rivian-api.ts'
-import { READ_ONLY, text } from '../../src/tools.ts'
+import { errorText, READ_ONLY, text } from '../../src/tools.ts'
 import html from '../dist/app.html'
 import type {
   ChargeSessionView,
@@ -94,7 +94,7 @@ export function registerApps(server: McpServer, env: Env): void {
         const view = await statusView(env)
         return { ...text(describeStatus(view)), structuredContent: view }
       } catch (err) {
-        return text((err as Error).message)
+        return errorText((err as Error).message)
       }
     },
   )
