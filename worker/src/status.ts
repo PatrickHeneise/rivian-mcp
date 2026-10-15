@@ -380,9 +380,8 @@ function alerts(
   if (thermal && thermal !== 'off' && thermal !== 'nominal') {
     add('critical', `High-voltage battery thermal event: ${thermal}`)
   }
-  const named = (c: Corner) => CORNERS.find(([k]) => k === c)?.[2] ?? c
   const corners = (pick: (c: Corner) => boolean) =>
-    (['fl', 'fr', 'rl', 'rr'] as Corner[]).filter(pick).map(named)
+    CORNERS.filter(([c]) => pick(c)).map(([, , label]) => label)
 
   const openDoors = corners((c) => view.doors[c].open === true)
   if (openDoors.length) add('warning', `Door open: ${list(openDoors)}`)
