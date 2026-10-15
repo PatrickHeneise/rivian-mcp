@@ -132,27 +132,21 @@ function unitsToggle(current: Units): HTMLElement {
     } catch {}
     render()
   }
+  const button = (value: Units, label: string) =>
+    h(
+      'button',
+      {
+        class: current === value ? 'active' : '',
+        'aria-pressed': String(current === value),
+        onclick: pick(value),
+      },
+      label,
+    )
   return h(
     'div',
     { class: 'seg', role: 'group', 'aria-label': 'Units' },
-    h(
-      'button',
-      {
-        class: current === 'imperial' ? 'active' : '',
-        'aria-pressed': String(current === 'imperial'),
-        onclick: pick('imperial'),
-      },
-      'mi',
-    ),
-    h(
-      'button',
-      {
-        class: current === 'metric' ? 'active' : '',
-        'aria-pressed': String(current === 'metric'),
-        onclick: pick('metric'),
-      },
-      'km',
-    ),
+    button('imperial', 'mi'),
+    button('metric', 'km'),
   )
 }
 
