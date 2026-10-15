@@ -69,7 +69,7 @@ function extentDeg(points: readonly LonLat[]): number {
     if (lat < minLat) minLat = lat
     if (lat > maxLat) maxLat = lat
   }
-  return Math.max(maxLon - minLon, maxLat - minLat) || 1
+  return Math.hypot(maxLon - minLon, maxLat - minLat) || 1
 }
 
 /** Perpendicular distance in degrees, longitude scaled so a degree is the same length either way. */

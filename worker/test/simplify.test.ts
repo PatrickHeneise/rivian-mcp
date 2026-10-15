@@ -46,3 +46,12 @@ test('simplifyIndices is ascending and keeps the bend', () => {
     `bend lost: ${kept.join(',')}`,
   )
 })
+
+test('simplify honors max_points on a diagonal loop', () => {
+  const loop: [number, number][] = [
+    [0, 0],
+    [1, 1],
+    [0, 0],
+  ]
+  assert.equal(simplify(loop, 2).length, 2)
+})
