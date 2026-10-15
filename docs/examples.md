@@ -20,6 +20,12 @@ Local sign-in uses `rivian_login` followed by `rivian_submit_otp`. The Cloudflar
 
 ## Recorder views (Cloudflare only)
 
+`show_status` takes no arguments. It reads live vehicle state and shows a dashboard: a drawing of the R1S, R1T or R2 with doors, closures, windows and tires, lock state, battery, range, charging, cabin, location, software update status and anything that needs attention:
+
+```json
+{}
+```
+
 `show_drive` with no arguments shows the latest recorded drive, including an in-progress drive:
 
 ```json

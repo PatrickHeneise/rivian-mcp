@@ -612,6 +612,35 @@ function toSessionSummary(item: HistoryItem): SessionSummary {
   }
 }
 
+/** The account's display units. Each is often null. */
+export interface UserSettings {
+  distanceUnit: string | null
+  temperatureUnit: string | null
+}
+
+export async function getUserSettings(session: Session): Promise<UserSettings> {
+  const body = {
+    operationName: 'getUserSettings',
+    query: `query getUserSettings {
+  currentUser { settings { distanceUnit { value } temperatureUnit { value } } }
+}`,
+    variables: null,
+  }
+  const data = await gql<{
+    currentUser: {
+      settings?: {
+        distanceUnit?: { value: string | null } | null
+        temperatureUnit?: { value: string | null } | null
+      } | null
+    }
+  }>(GRAPHQL_GATEWAY, body, authHeaders(session))
+  const settings = data.currentUser.settings
+  return {
+    distanceUnit: settings?.distanceUnit?.value ?? null,
+    temperatureUnit: settings?.temperatureUnit?.value ?? null,
+  }
+}
+
 export async function getChargingSchedule(
   session: Session,
   vehicleId: string,

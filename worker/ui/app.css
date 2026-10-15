@@ -389,6 +389,408 @@ table.drives {
   min-width: 0;
 }
 
+.pin-here {
+  background: var(--accent);
+}
+
+/* Status: vehicle diagram, lock panel, meters, alerts */
+.dash {
+  --ok: light-dark(#2f7a4f, #5fbf86);
+  --warn: var(--accent);
+  --bad: light-dark(#b5482f, #ee7a5f);
+  --car-body: light-dark(#ece7da, #262c27);
+  --car-line: light-dark(#a9a597, #4a524b);
+  --car-roof: light-dark(#dcd6c6, #313932);
+  --glass: light-dark(#3b4a41, #0d1410);
+  --tire: light-dark(#2b2e2a, #090b09);
+}
+
+.icon {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  line-height: 1;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+}
+
+.car-wrap {
+  min-width: 0;
+}
+
+svg.car {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  overflow: visible;
+}
+
+.car .body {
+  fill: var(--car-body);
+  stroke: var(--car-line);
+  stroke-width: 1.5;
+}
+
+.car .glass {
+  fill: var(--glass);
+  opacity: 0.85;
+}
+
+.car .roof {
+  fill: var(--car-roof);
+}
+
+.car .tunnel {
+  fill: var(--car-roof);
+  stroke: var(--car-line);
+}
+
+.car .mirror {
+  fill: var(--car-body);
+  stroke: var(--car-line);
+}
+
+.car .tire {
+  fill: var(--tire);
+}
+
+.car .tire.low {
+  fill: var(--warn);
+}
+
+.car .tire.critical {
+  fill: var(--bad);
+}
+
+.car .panel,
+.car .door {
+  fill: var(--car-body);
+  stroke: var(--car-line);
+  stroke-width: 1.2;
+  transition: fill 0.2s;
+}
+
+.car .panel {
+  fill: transparent;
+}
+
+.car .panel.bed {
+  fill: var(--car-roof);
+}
+
+.car .door.closed,
+.car .panel.closed {
+  stroke: var(--ok);
+}
+
+.car .door.unlocked,
+.car .panel.unlocked {
+  fill: var(--accent-fill);
+  stroke: var(--warn);
+  stroke-width: 2;
+}
+
+.car .door.open,
+.car .panel.open {
+  fill: color-mix(in srgb, var(--bad) 30%, transparent);
+  stroke: var(--bad);
+  stroke-width: 2;
+}
+
+.car .door.unknown,
+.car .panel.unknown {
+  stroke-dasharray: 3 3;
+}
+
+.car .window.closed,
+.car .window.unknown {
+  fill: transparent;
+}
+
+.car .window.open {
+  fill: var(--warn);
+}
+
+.car .lock circle {
+  fill: var(--surface);
+  stroke: var(--car-line);
+  stroke-width: 1.5;
+}
+
+.car .lock .shackle {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.car .lock.locked .shackle {
+  stroke: var(--ok);
+}
+
+.car .lock.locked .lock-body {
+  fill: var(--ok);
+}
+
+.car .lock.unlocked .shackle {
+  stroke: var(--warn);
+}
+
+.car .lock.unlocked .lock-body {
+  fill: var(--warn);
+}
+
+.car .lock.unknown .shackle {
+  stroke: var(--ink-3);
+}
+
+.car .lock.unknown .lock-body {
+  fill: var(--ink-3);
+}
+
+.car .port-dot {
+  fill: var(--car-body);
+  stroke: var(--car-line);
+  stroke-width: 1.5;
+}
+
+.car .port.plugged .port-dot,
+.car .port.complete .port-dot,
+.car .port.charging .port-dot {
+  fill: var(--ok);
+  stroke: var(--ok);
+}
+
+.car .cable {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.car .port.charging .cable {
+  stroke: var(--ok);
+  stroke-dasharray: 8 6;
+  animation: flow 1s linear infinite;
+}
+
+@keyframes flow {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .car .port.charging .cable {
+    animation: none;
+  }
+}
+
+.lock-head {
+  border-left: 4px solid var(--ink-3);
+  padding-left: 12px;
+  margin-bottom: 12px;
+}
+
+.lock-head.locked {
+  border-color: var(--ok);
+}
+
+.lock-head.unlocked {
+  border-color: var(--warn);
+}
+
+.lock-title {
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.checks li {
+  display: grid;
+  grid-template-columns: 10px minmax(80px, auto) 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.checks li > :last-child {
+  text-align: right;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.dot.closed {
+  background: var(--ok);
+}
+
+.dot.unlocked {
+  background: var(--warn);
+}
+
+.dot.open {
+  background: var(--bad);
+}
+
+.meter {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  margin-top: 8px;
+}
+
+.meter .fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ok);
+}
+
+.meter.low .fill {
+  background: var(--bad);
+}
+
+.meter.charging .fill {
+  background: linear-gradient(90deg, var(--ok), var(--accent));
+}
+
+.meter .limit {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 14px;
+  background: var(--ink);
+  transform: translateX(-1px);
+}
+
+.version .value {
+  margin: 0;
+}
+
+.tile.charge.charging .value {
+  color: var(--ok);
+}
+
+.all-clear {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ok);
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.alerts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.alerts li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink-3);
+}
+
+.alerts li.warning {
+  border-left-color: var(--warn);
+}
+
+.alerts li.critical {
+  border-left-color: var(--bad);
+}
+
+.alerts .level {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  min-width: 60px;
+}
+
+.software {
+  display: grid;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.version {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.badge.ok {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+}
+
+.update {
+  margin: 0;
+}
+
+.progress {
+  font-size: 12px;
+}
+
+.links {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 600px) {
   header {
     grid-template-columns: 1fr;

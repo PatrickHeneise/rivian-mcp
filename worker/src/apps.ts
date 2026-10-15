@@ -8,7 +8,8 @@ import {
 } from '@modelcontextprotocol/ext-apps/server'
 import type { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
-import { text } from '../../src/tools.ts'
+import * as rivian from '../../src/rivian-api.ts'
+import { errorText, READ_ONLY, text } from '../../src/tools.ts'
 import html from '../dist/app.html'
 import type {
   ChargeSessionView,
@@ -17,10 +18,12 @@ import type {
   DriveView,
   Series,
   StatsView,
+  StatusView,
   TrackPoint,
 } from './app-data.ts'
 import { batterySamples, DAY_MS, driveWindowSamples } from './battery.ts'
-import { type DriveRow, iso, km } from './mcp.ts'
+import { geocodeKey, reverseGeocodeMany } from './geocode.ts'
+import { type DriveRow, iso, km, recorder } from './mcp.ts'
 import { RVM_BATTERY, RVM_CHARGE_BREAKDOWN } from './parallax.ts'
 import { DAILY_CAPACITY_SQL, STATS_POINTS_SQL } from './queries.ts'
 import {
@@ -36,6 +39,7 @@ import {
   round,
   SESSION_GAP_MS,
 } from './stats.ts'
+import { buildStatus, describeStatus, type ParallaxBattery, STATUS_PROPERTIES } from './status.ts'
 
 export const APP_URI = 'ui://rivian-mcp/app.html'
 /** Tile servers the map loads images from. */
@@ -47,6 +51,10 @@ const MAX_SERIES_POINTS = 300
 const STATS_POINT_BUCKET_MS = 15_000
 /** Charging reads every battery sample of the period, so it takes a shorter range than stats. */
 const MAX_CHARGING_DAYS = 90
+/** A recorded battery sample older than this does not tell the range unit. */
+const RANGE_SAMPLE_MAX_AGE_MS = 6 * 3_600_000
+/** A recorded charging power older than this is not the current power. */
+const POWER_SAMPLE_MAX_AGE_MS = 5 * 60_000
 
 const ui = { ui: { resourceUri: APP_URI } }
 const daysInput = (max: number) =>
@@ -59,7 +67,7 @@ export function registerApps(server: McpServer, env: Env): void {
     server,
     'Rivian dashboard',
     APP_URI,
-    { description: 'Map, stats and charts for recorded drives and charging' },
+    { description: 'Vehicle status, and maps, stats and charts for recorded drives and charging' },
     async () => ({
       contents: [
         {
@@ -70,6 +78,25 @@ export function registerApps(server: McpServer, env: Env): void {
         },
       ],
     }),
+  )
+
+  registerAppTool(
+    server,
+    'show_status',
+    {
+      description:
+        'Show the vehicle status right now as a dashboard: a drawing of the vehicle with doors, closures, windows and tires, lock state, battery, range, charging, cabin temperature, location, software update status and anything that needs attention. Use for "Rivian status", "is my car locked", "how charged is it" or "is there an update".',
+      annotations: READ_ONLY,
+      _meta: ui,
+    },
+    async () => {
+      try {
+        const view = await statusView(env)
+        return { ...text(describeStatus(view)), structuredContent: view }
+      } catch (err) {
+        return errorText((err as Error).message)
+      }
+    },
   )
 
   registerAppTool(
@@ -146,6 +173,55 @@ export function registerApps(server: McpServer, env: Env): void {
       }
     },
   )
+}
+
+async function statusView(env: Env): Promise<StatusView> {
+  const rec = recorder(env)
+  const { session, vehicles } = await rec.rivianSession()
+  const [vehicle] = vehicles
+  if (!vehicle) throw new Error('No vehicles found on your Rivian account.')
+  const at = Date.now()
+  const latest = async (rvm: string, maxAgeMs: number) => {
+    const row = await env.DB.prepare(
+      'SELECT data FROM charge_samples WHERE vehicle_id = ? AND rvm = ? AND ts >= ? ORDER BY ts DESC LIMIT 1',
+    )
+      .bind(vehicle.id, rvm, at - maxAgeMs)
+      .first<{ data: string }>()
+    return row ? (JSON.parse(row.data) as Record<string, number | undefined>) : null
+  }
+  // Only the vehicle state is required; every other source only adds detail.
+  const [state, ota, settings, status, battery, power] = await Promise.all([
+    rivian.getVehicleState(session, vehicle.id, STATUS_PROPERTIES),
+    rivian.getOTAUpdateDetails(session, vehicle.id).catch(() => null),
+    rivian.getUserSettings(session).catch(() => null),
+    rec.status().catch(() => null),
+    latest(RVM_BATTERY, RANGE_SAMPLE_MAX_AGE_MS).catch(() => null),
+    latest(RVM_CHARGE_BREAKDOWN, POWER_SAMPLE_MAX_AGE_MS).catch(() => null),
+  ])
+  const loc = state.gnssLocation
+  let place: string | null = null
+  if (typeof loc?.latitude === 'number' && typeof loc.longitude === 'number') {
+    const { latitude: lat, longitude: lon } = loc
+    place = await reverseGeocodeMany(env.DB, [{ lat, lon }])
+      .then((found) => found.get(geocodeKey(lat, lon))?.label ?? null)
+      .catch(() => null)
+  }
+  const parallaxBattery: ParallaxBattery | null =
+    battery?.socPct !== undefined && battery.rangeKm !== undefined
+      ? { socPct: battery.socPct, rangeKm: battery.rangeKm }
+      : null
+  const drive = status?.openDrives.find((d) => d.vehicleId === vehicle.id)
+  return buildStatus({
+    at,
+    vehicle,
+    state,
+    ota,
+    settings,
+    parallaxBattery,
+    powerKw: power?.powerKw ?? null,
+    drive: drive ? { startedAt: drive.startedAt, distanceM: Math.round(drive.distanceM) } : null,
+    place,
+  })
 }
 
 async function driveView(db: D1Database, id: string | undefined): Promise<DriveView | null> {
