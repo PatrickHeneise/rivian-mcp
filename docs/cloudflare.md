@@ -124,7 +124,11 @@ Tested in the Codex desktop app.
 
    ![Codex's Connect to a custom MCP form with the name Rivian, type Streamable HTTP and the connector address](images/codex-connect-custom-mcp.png)
 
-5. In a new chat, ask "Connect to Rivian". Your browser opens the sign-in page. [Sign in](#sign-in) with your Rivian email, password and one-time code. The browser then shows "Authentication complete. You may close this window."
+5. In a new chat, ask "Connect to Rivian". Codex finds the server you added and opens the sign-in page in your browser.
+
+   ![Codex working on "connect to rivian": it reads the local setup and finds the Rivian MCP address](images/codex-connect-to-rivian.png)
+
+6. [Sign in](#sign-in) with your Rivian email, password and one-time code. The browser then shows "Authentication complete. You may close this window."
 
    ![A browser tab at a 127.0.0.1 callback address that reads "Authentication complete. You may close this window."](images/codex-authentication-complete.png)
 
