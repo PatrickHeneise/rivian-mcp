@@ -44,10 +44,40 @@ interface PhotonResponse {
 const NEIGHBORHOOD_VALUES = new Set(['suburb', 'neighbourhood', 'quarter', 'borough'])
 const CITY_VALUES = new Set(['city', 'town', 'village', 'hamlet', 'municipality'])
 
+/** Longest place name kept. OSM names are short; anything longer is not a name. */
+const MAX_NAME_LENGTH = 80
+
+/**
+ * A geocoder string as plain text: one line, no control characters, bounded length. The
+ * names come from OpenStreetMap and end up in text a model reads, so they are data only.
+ */
+function cleanName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+  const text = value
+    .replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return undefined
+  return text.length > MAX_NAME_LENGTH ? `${text.slice(0, MAX_NAME_LENGTH - 1)}…` : text
+}
+
 /** Place info from a Photon reverse response. Null when it has no feature. */
 export function parsePhotonReverse(json: unknown): PlaceInfo | null {
-  const props = (json as PhotonResponse)?.features?.[0]?.properties
-  if (!props) return null
+  const raw = (json as PhotonResponse)?.features?.[0]?.properties
+  if (!raw || typeof raw !== 'object') return null
+  const props: PhotonProperties = {
+    osm_key: cleanName(raw.osm_key),
+    osm_value: cleanName(raw.osm_value),
+    name: cleanName(raw.name),
+    district: cleanName(raw.district),
+    locality: cleanName(raw.locality),
+    city: cleanName(raw.city),
+    county: cleanName(raw.county),
+    state: cleanName(raw.state),
+    country: cleanName(raw.country),
+    countrycode: cleanName(raw.countrycode)?.slice(0, 2),
+  }
   const isPlace = props.osm_key === 'place'
   const neighborhood =
     props.district ??
